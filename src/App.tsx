@@ -18,6 +18,7 @@ import {
   Scenario3Data,
   TrainingStepId,
   TrainingState,
+  CinematicStep,
 } from './types/game';
 import {
   generateScenario1,
@@ -36,6 +37,11 @@ import { Lasers, LaserHandle } from './components/Lasers';
 import { ParticleSystem, ParticleSystemHandle } from './components/ParticleSystem';
 import { VRPlayer, VRPlayerHandle, TargetNodeInfo } from './components/VRPlayer';
 import { EducationalQuestion3D } from './components/EducationalQuestion3D';
+import { MatrixCodeRain3D } from './components/MatrixCodeRain3D';
+import { WarpTunnel3D } from './components/WarpTunnel3D';
+import { SplashHero3D } from './components/SplashHero3D';
+import { ScenarioHub3D } from './components/ScenarioHub3D';
+import { DifficultyHub3D } from './components/DifficultyHub3D';
 import { Scenario1Firewall } from './components/Scenario1Firewall';
 import { Scenario2Payload } from './components/Scenario2Payload';
 import { Scenario3DDoS } from './components/Scenario3DDoS';
@@ -44,11 +50,12 @@ import { TrainingOverlay } from './components/TrainingOverlay';
 import { StartScreen } from './components/StartScreen';
 import { HUDOverlay } from './components/HUDOverlay';
 import { RulebookModal } from './components/RulebookModal';
+import { Glasses, BookOpen, GraduationCap, Volume2, VolumeX, Sparkles } from 'lucide-react';
 
 /**
- * Scene Camera Rig: Sets eye level and updates Web Audio HRTF 3D positional listener in real time
+ * Scene Camera Rig: Sets eye level, coordinates dynamic warp transitions, and updates Web Audio HRTF listener
  */
-function SceneCamera() {
+function SceneCamera({ cinematicStep }: { cinematicStep: CinematicStep }) {
   const { camera } = useThree();
 
   useEffect(() => {
@@ -57,7 +64,7 @@ function SceneCamera() {
     camera.updateProjectionMatrix();
   }, [camera]);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     const dir = new THREE.Vector3();
     camera.getWorldDirection(dir);
     spatialAudio.updateListener(
@@ -68,6 +75,15 @@ function SceneCamera() {
       dir.y,
       dir.z
     );
+
+    // Subtle physical camera momentum during forward and reverse warp transitions
+    if (cinematicStep.startsWith('warp_to_')) {
+      camera.position.z = THREE.MathUtils.damp(camera.position.z, -0.6, 3.5, delta);
+    } else if (cinematicStep.startsWith('warp_reverse_')) {
+      camera.position.z = THREE.MathUtils.damp(camera.position.z, 1.2, 3.5, delta);
+    } else {
+      camera.position.z = THREE.MathUtils.damp(camera.position.z, 0.4, 6.0, delta);
+    }
   });
 
   return null;
@@ -82,6 +98,7 @@ export default function App() {
   // Game States
   const [language, setLanguage] = useState<Language>('en');
   const [gameStatus, setGameStatus] = useState<GameStatus>(autoStart ? 'playing' : 'start');
+  const [cinematicStep, setCinematicStep] = useState<CinematicStep>('splash');
   const [scenarioId, setScenarioId] = useState<ScenarioId>(initialScenario);
   const [selectedScenarioOption, setSelectedScenarioOption] = useState<ScenarioId | 'random'>('random');
   const [difficulty, setDifficulty] = useState<DifficultyLevel>('medium');
@@ -148,16 +165,43 @@ export default function App() {
       const active = Boolean(state.session);
       setIsInVR(active);
       if (active && gameStatus === 'start') {
-        setGameStatus('playing');
         spatialAudio.startAmbientHum();
       }
     });
     return () => unsubscribe();
   }, [xrStore, gameStatus]);
 
-  // Compute Active 3D Target Nodes for Magnetic Aim Assist based on current Scenario / Educational Question
+  // Compute Active 3D Target Nodes for Magnetic Aim Assist based on current Cinematic Step & Gameplay Scenario
   const activeTargets: TargetNodeInfo[] = useMemo(() => {
-    // Training mode target nodes
+    // 1. Cinematic 3D Hubs (Step 1, Step 2, Step 3)
+    if (gameStatus === 'start') {
+      if (cinematicStep === 'splash') {
+        return [
+          { id: 'cta_initialize', position: [0, 1.4, -3.8], radius: 0.65 },
+          { id: 'cta_manual', position: [-1.25, 0.85, -3.8], radius: 0.5 },
+          { id: 'cta_lang', position: [1.25, 0.85, -3.8], radius: 0.5 },
+        ];
+      }
+      if (cinematicStep === 'scenario_select') {
+        return [
+          { id: 'scenario-1', position: [-2.3, 1.6, -3.4], radius: 0.75 },
+          { id: 'scenario-2', position: [0.0, 1.6, -3.4], radius: 0.75 },
+          { id: 'scenario-3', position: [2.3, 1.6, -3.4], radius: 0.75 },
+          { id: 'back_splash', position: [0, 0.25, -3.0], radius: 0.5 },
+        ];
+      }
+      if (cinematicStep === 'difficulty_select') {
+        return [
+          { id: 'easy', position: [-2.3, 1.6, -3.4], radius: 0.75 },
+          { id: 'medium', position: [0.0, 1.6, -3.4], radius: 0.75 },
+          { id: 'hard', position: [2.3, 1.6, -3.4], radius: 0.75 },
+          { id: 'back_scenarios', position: [0, 0.25, -3.0], radius: 0.5 },
+        ];
+      }
+      return [];
+    }
+
+    // 2. Training mode target nodes
     if (gameStatus === 'training') {
       if (trainingState.step === 'welcome' || trainingState.step === 'blaster_basics') {
         const list: TargetNodeInfo[] = [];
@@ -207,7 +251,7 @@ export default function App() {
 
     if (gameStatus !== 'playing') return [];
 
-    // Educational Shoot-to-Solve Solution Badges (Y: 1.25m, Z: -3.5m)
+    // 3. Educational Shoot-to-Solve Solution Badges (Y: 1.25m, Z: -3.5m)
     const positions: [number, number, number][] = [
       [-1.55, 1.25, -3.5],
       [0.0, 1.25, -3.5],
@@ -218,7 +262,7 @@ export default function App() {
       position: positions[idx] || [0, 1.25, -3.5],
       radius: 0.55,
     }));
-  }, [gameStatus, trainingState, currentQuestion]);
+  }, [gameStatus, cinematicStep, trainingState, currentQuestion]);
 
   // Start or Reset a Scenario
   const initScenario = useCallback(
@@ -241,6 +285,7 @@ export default function App() {
       setHealth(100);
       setTimeRemaining(getInitialTimer(activeDiff));
       setGameStatus('playing');
+      setCinematicStep('playing');
       setQuestionIndex(0);
       setEducationalFeedback(null);
       setLastQuestionResult(null);
@@ -251,6 +296,68 @@ export default function App() {
     },
     [selectedScenarioOption, difficulty, getInitialTimer]
   );
+
+  // Cinematic 4-Step Navigation Handlers (with 3D Warp Time Tunnel Transitions)
+  const handleStartWarpToScenarios = useCallback(() => {
+    spatialAudio.playButtonBeep(640);
+    spatialAudio.playWarpWhoosh(false);
+    setCinematicStep('warp_to_scenario');
+  }, []);
+
+  const handleCompleteWarpToScenarios = useCallback(() => {
+    spatialAudio.playWarpDecelerate();
+    setCinematicStep('scenario_select');
+  }, []);
+
+  const handleSelectScenario = useCallback((sc: ScenarioId) => {
+    setScenarioId(sc);
+    setSelectedScenarioOption(sc);
+    spatialAudio.playButtonBeep(720);
+    spatialAudio.playWarpWhoosh(false);
+    setCinematicStep('warp_to_difficulty');
+  }, []);
+
+  const handleCompleteWarpToDifficulty = useCallback(() => {
+    spatialAudio.playWarpDecelerate();
+    setCinematicStep('difficulty_select');
+  }, []);
+
+  const handleSelectDifficulty = useCallback(
+    (diff: DifficultyLevel) => {
+      setDifficulty(diff);
+      spatialAudio.playButtonBeep(880);
+      spatialAudio.playWarpWhoosh(false);
+      setCinematicStep('warp_to_game');
+    },
+    []
+  );
+
+  const handleCompleteWarpToGame = useCallback(() => {
+    spatialAudio.playWarpDecelerate();
+    initScenario(scenarioId, difficulty);
+  }, [initScenario, scenarioId, difficulty]);
+
+  const handleBackToSplash = useCallback(() => {
+    spatialAudio.playButtonBeep(420);
+    spatialAudio.playWarpWhoosh(true);
+    setCinematicStep('warp_reverse_to_splash');
+  }, []);
+
+  const handleCompleteWarpReverseToSplash = useCallback(() => {
+    spatialAudio.playWarpDecelerate();
+    setCinematicStep('splash');
+  }, []);
+
+  const handleBackToScenarios = useCallback(() => {
+    spatialAudio.playButtonBeep(420);
+    spatialAudio.playWarpWhoosh(true);
+    setCinematicStep('warp_reverse_to_scenario');
+  }, []);
+
+  const handleCompleteWarpReverseToScenarios = useCallback(() => {
+    spatialAudio.playWarpDecelerate();
+    setCinematicStep('scenario_select');
+  }, []);
 
   const handleChangeDifficulty = useCallback(
     (newDiff: DifficultyLevel) => {
@@ -668,14 +775,43 @@ export default function App() {
   // Handle laser fire from VR controller or desktop mouse (Aim, Lock & Shoot to Solve)
   const handleFireLaser = useCallback(
     (origin: THREE.Vector3, direction: THREE.Vector3, side: 'left' | 'right' | 'desktop', aimOrigin?: THREE.Vector3) => {
-      if (gameStatus !== 'playing' && gameStatus !== 'training') return;
-
       const boltColor = side === 'left' ? '#ec4899' : '#00f0ff';
       // 1. Spawn traveling 3D volumetric energy bolt
       lasersRef.current?.fireBolt(origin, direction, boltColor, side);
 
       // 2. Muzzle flash sparks at weapon barrel
       particlesRef.current?.spawnSparks(origin.x, origin.y, origin.z, boltColor);
+
+      // CINEMATIC 3D HUBS DISPATCH (Splash Screen, Scenario Hub, Difficulty Hub)
+      if (gameStatus === 'start') {
+        const hitOrigin = aimOrigin || origin;
+        const ray = new THREE.Ray(hitOrigin, direction.clone().normalize());
+
+        activeTargets.forEach((target) => {
+          const sphere = new THREE.Sphere(new THREE.Vector3(...target.position), target.radius || 0.55);
+          if (ray.intersectsSphere(sphere)) {
+            const id = String(target.id);
+            particlesRef.current?.spawnSparks(target.position[0], target.position[1], target.position[2], '#00f0ff');
+
+            if (id === 'cta_initialize') {
+              handleStartWarpToScenarios();
+            } else if (id === 'cta_manual') {
+              setIsManualOpen(true);
+            } else if (id === 'cta_lang') {
+              setLanguage((prev) => (prev === 'en' ? 'ar' : 'en'));
+            } else if (id === 'scenario-1' || id === 'scenario-2' || id === 'scenario-3') {
+              handleSelectScenario(id as ScenarioId);
+            } else if (id === 'back_splash') {
+              handleBackToSplash();
+            } else if (id === 'easy' || id === 'medium' || id === 'hard') {
+              handleSelectDifficulty(id as DifficultyLevel);
+            } else if (id === 'back_scenarios') {
+              handleBackToScenarios();
+            }
+          }
+        });
+        return;
+      }
 
       // TRAINING MODE DISPATCH
       if (gameStatus === 'training') {
@@ -715,7 +851,17 @@ export default function App() {
         }
       });
     },
-    [gameStatus, activeTargets, handleOptionShot, handleTrainingTargetHit]
+    [
+      gameStatus,
+      activeTargets,
+      handleOptionShot,
+      handleTrainingTargetHit,
+      handleStartWarpToScenarios,
+      handleSelectScenario,
+      handleBackToSplash,
+      handleSelectDifficulty,
+      handleBackToScenarios,
+    ]
   );
 
   // Grip action handler
@@ -780,10 +926,72 @@ export default function App() {
           }}
         >
           <XR store={xrStore}>
-            <SceneCamera />
+            <SceneCamera cinematicStep={cinematicStep} />
 
-            {/* AAA Server Room 3D Environment with Emergency Dimming & Rotating Strobes */}
-            <ServerRoom isEmergency={health < 30 || scenarioId === 'scenario-3'} />
+            {/* AAA Server Room 3D Environment (Active during gameplay and training) */}
+            {gameStatus !== 'start' && (
+              <ServerRoom isEmergency={health < 30 || scenarioId === 'scenario-3'} />
+            )}
+
+            {/* Step 1: 3D Matrix Code Rain & Cyber Grid Floor */}
+            {gameStatus === 'start' && cinematicStep === 'splash' && (
+              <MatrixCodeRain3D active={true} />
+            )}
+
+            {/* Step 1: 3D Splash Screen Hero with Glitch Typography & Glowing CTAs */}
+            {gameStatus === 'start' && cinematicStep === 'splash' && (
+              <SplashHero3D
+                language={language}
+                onToggleLanguage={() => setLanguage((prev) => (prev === 'en' ? 'ar' : 'en'))}
+                onInitializeDefense={handleStartWarpToScenarios}
+                onOpenManual={() => setIsManualOpen(true)}
+                onStartTraining={handleStartTraining}
+                lockedTargetId={lockedTargetId}
+              />
+            )}
+
+            {/* 3D Warp Time Tunnel Transition (Steps 1->2, 2->3, 3->4 and Reverse Nav) */}
+            {gameStatus === 'start' && cinematicStep.startsWith('warp_') && (
+              <WarpTunnel3D
+                active={true}
+                reverse={cinematicStep.startsWith('warp_reverse_')}
+                onComplete={() => {
+                  if (cinematicStep === 'warp_to_scenario') {
+                    handleCompleteWarpToScenarios();
+                  } else if (cinematicStep === 'warp_to_difficulty') {
+                    handleCompleteWarpToDifficulty();
+                  } else if (cinematicStep === 'warp_to_game') {
+                    handleCompleteWarpToGame();
+                  } else if (cinematicStep === 'warp_reverse_to_splash') {
+                    handleCompleteWarpReverseToSplash();
+                  } else if (cinematicStep === 'warp_reverse_to_scenario') {
+                    handleCompleteWarpReverseToScenarios();
+                  }
+                }}
+              />
+            )}
+
+            {/* Step 2: 3D Scenario Selection Hub (3 Floating Holographic Cards) */}
+            {gameStatus === 'start' && cinematicStep === 'scenario_select' && (
+              <ScenarioHub3D
+                language={language}
+                selectedScenario={scenarioId}
+                onSelectScenario={handleSelectScenario}
+                onBackToSplash={handleBackToSplash}
+                lockedTargetId={lockedTargetId}
+              />
+            )}
+
+            {/* Step 3: 3D Difficulty & Skill Selection Hub (3 Tiered Nodes) */}
+            {gameStatus === 'start' && cinematicStep === 'difficulty_select' && (
+              <DifficultyHub3D
+                language={language}
+                selectedDifficulty={difficulty}
+                onSelectDifficulty={handleSelectDifficulty}
+                onBackToScenarios={handleBackToScenarios}
+                lockedTargetId={lockedTargetId}
+              />
+            )}
 
             {/* GPU/CPU Particle Systems (Sparks, Disintegration, Cyber Dust) */}
             <ParticleSystem ref={particlesRef} />
@@ -862,22 +1070,97 @@ export default function App() {
         </Canvas>
       </div>
 
-      {/* Start Screen with 3-Tier Difficulty Progression System */}
+      {/* Sleek Top Bar for Cinematic Navigation & Quick Controls (Non-intrusive, zero viewport occlusion) */}
       {gameStatus === 'start' && !isInVR && (
-        <StartScreen
-          language={language}
-          onSelectLanguage={setLanguage}
-          difficulty={difficulty}
-          onSelectDifficulty={handleChangeDifficulty}
-          onEnterVR={handleEnterVR}
-          onPlayDesktop={() => initScenario()}
-          onStartTraining={handleStartTraining}
-          onOpenManual={() => setIsManualOpen(true)}
-          isMuted={isMuted}
-          onToggleMute={handleToggleMute}
-          selectedScenario={selectedScenarioOption}
-          onSelectScenario={setSelectedScenarioOption}
-        />
+        <header
+          className="fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-6 py-3 bg-slate-950/70 border-b border-cyan-500/20 backdrop-blur-md"
+          dir={language === 'ar' ? 'rtl' : 'ltr'}
+        >
+          {/* Zone 1: Brand Wordmark & Cinematic Step Indicator */}
+          <div className="flex items-center gap-3">
+            <span className="text-base sm:text-lg font-black tracking-wider text-cyan-400 font-mono">
+              CYBER HEIST: NODE DEFENDER
+            </span>
+            <span className="hidden sm:inline-block text-xs font-mono text-emerald-400 border border-emerald-500/30 bg-emerald-950/40 px-2 py-0.5 rounded">
+              {cinematicStep === 'splash' && (language === 'ar' ? 'المرحلة 1: البوابة الرئيسية' : 'STEP 1 // MAIN GATEWAY')}
+              {(cinematicStep === 'scenario_select' || cinematicStep === 'warp_to_scenario' || cinematicStep === 'warp_reverse_to_scenario') && (language === 'ar' ? 'المرحلة 2: اختيار السيناريو' : 'STEP 2 // SCENARIO HUB')}
+              {(cinematicStep === 'difficulty_select' || cinematicStep === 'warp_to_difficulty' || cinematicStep === 'warp_to_game') && (language === 'ar' ? 'المرحلة 3: مستوى الصعوبة' : 'STEP 3 // DIFFICULTY HUB')}
+            </span>
+          </div>
+
+          {/* Zone 2: Navigation Links / Direct Stage Jump */}
+          <nav className="hidden md:flex items-center gap-4 text-xs font-mono text-slate-400">
+            <button
+              onClick={() => {
+                spatialAudio.playButtonBeep(520);
+                setCinematicStep('splash');
+              }}
+              className={`hover:text-cyan-300 transition-colors cursor-pointer ${cinematicStep === 'splash' ? 'text-cyan-400 font-bold' : ''}`}
+            >
+              {language === 'ar' ? '01. البداية' : '01. Splash'}
+            </button>
+            <span>/</span>
+            <button
+              onClick={handleStartWarpToScenarios}
+              className={`hover:text-cyan-300 transition-colors cursor-pointer ${cinematicStep === 'scenario_select' ? 'text-cyan-400 font-bold' : ''}`}
+            >
+              {language === 'ar' ? '02. السيناريوهات' : '02. Scenarios'}
+            </button>
+            <span>/</span>
+            <button
+              onClick={() => {
+                spatialAudio.playButtonBeep(640);
+                spatialAudio.playWarpWhoosh(false);
+                setCinematicStep('warp_to_difficulty');
+              }}
+              className={`hover:text-cyan-300 transition-colors cursor-pointer ${cinematicStep === 'difficulty_select' ? 'text-cyan-400 font-bold' : ''}`}
+            >
+              {language === 'ar' ? '03. الصعوبة' : '03. Difficulty'}
+            </button>
+          </nav>
+
+          {/* Zone 3: Actions (Enter VR, Incident Rulebook, Training, Mute, Language) */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => setLanguage((prev) => (prev === 'en' ? 'ar' : 'en'))}
+              className="px-2.5 py-1 text-xs font-mono rounded bg-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:border-cyan-400 transition-colors cursor-pointer"
+            >
+              {language === 'ar' ? 'EN' : 'عربي'}
+            </button>
+
+            <button
+              onClick={handleToggleMute}
+              className="p-1.5 rounded bg-slate-900 border border-slate-700 text-slate-300 hover:text-cyan-400 transition-colors cursor-pointer"
+              title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
+            >
+              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            </button>
+
+            <button
+              onClick={() => setIsManualOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono rounded bg-amber-950/60 border border-amber-500/50 text-amber-300 hover:bg-amber-900/60 transition-colors cursor-pointer"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>{language === 'ar' ? 'الدليل' : 'Rulebook'}</span>
+            </button>
+
+            <button
+              onClick={handleStartTraining}
+              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono rounded bg-purple-950/60 border border-purple-500/50 text-purple-300 hover:bg-purple-900/60 transition-colors cursor-pointer"
+            >
+              <GraduationCap className="w-3.5 h-3.5" />
+              <span>{language === 'ar' ? 'محاكي التدريب' : 'Training Sim'}</span>
+            </button>
+
+            <button
+              onClick={handleEnterVR}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold font-mono rounded bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-lg shadow-cyan-500/20 hover:from-cyan-500 hover:to-blue-500 transition-all cursor-pointer"
+            >
+              <Glasses className="w-4 h-4" />
+              <span>{language === 'ar' ? 'دخول VR' : 'ENTER VR'}</span>
+            </button>
+          </div>
+        </header>
       )}
 
       {/* Guided Training Simulation HUD Overlay */}
@@ -913,7 +1196,10 @@ export default function App() {
           onToggleMute={handleToggleMute}
           onOpenManual={() => setIsManualOpen(true)}
           onRestartScenario={() => initScenario()}
-          onReturnToMenu={() => setGameStatus('start')}
+          onReturnToMenu={() => {
+            setGameStatus('start');
+            setCinematicStep('splash');
+          }}
           onOpenTraining={handleStartTraining}
           onTriggerTeamShout={handleTriggerTeamShout}
           lastTeamShout={lastTeamShout}

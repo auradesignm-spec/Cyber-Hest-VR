@@ -9,6 +9,17 @@ export type ScenarioId = 'scenario-1' | 'scenario-2' | 'scenario-3';
 
 export type DifficultyLevel = 'easy' | 'medium' | 'hard';
 
+export type CinematicStep =
+  | 'splash'
+  | 'warp_to_scenario'
+  | 'scenario_select'
+  | 'warp_to_difficulty'
+  | 'difficulty_select'
+  | 'warp_to_game'
+  | 'warp_reverse_to_scenario'
+  | 'warp_reverse_to_splash'
+  | 'playing';
+
 export interface QuestionOption {
   id: string;
   labelEn: string;

@@ -573,6 +573,116 @@ export class SpatialAudioEngine {
       // safety
     }
   }
+
+  /**
+   * 3D Warp Time Tunnel Hyperspace Whoosh (Synthesized noise sweep + sub-bass dive + resonant bandpass)
+   */
+  public playWarpWhoosh(reverse = false) {
+    if (this.muted) return;
+    const ctx = this.initContext();
+    if (!ctx || !this.masterGain) return;
+
+    try {
+      const t = ctx.currentTime;
+      const duration = 1.4;
+
+      // 1. Noise Generator for air/hyperspace friction
+      const bufferSize = Math.floor(ctx.sampleRate * duration);
+      const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+
+      const noiseSource = ctx.createBufferSource();
+      noiseSource.buffer = noiseBuffer;
+
+      const noiseFilter = ctx.createBiquadFilter();
+      noiseFilter.type = 'bandpass';
+      noiseFilter.Q.setValueAtTime(3.5, t);
+
+      if (reverse) {
+        noiseFilter.frequency.setValueAtTime(2400, t);
+        noiseFilter.frequency.exponentialRampToValueAtTime(180, t + duration);
+      } else {
+        noiseFilter.frequency.setValueAtTime(160, t);
+        noiseFilter.frequency.exponentialRampToValueAtTime(2800, t + duration * 0.7);
+        noiseFilter.frequency.exponentialRampToValueAtTime(400, t + duration);
+      }
+
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.01, t);
+      noiseGain.gain.linearRampToValueAtTime(0.4, t + duration * 0.4);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+      noiseSource.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      noiseGain.connect(this.masterGain);
+
+      noiseSource.start(t);
+      noiseSource.stop(t + duration);
+
+      // 2. Sub-bass engine rumble dive
+      const subOsc = ctx.createOscillator();
+      subOsc.type = 'sawtooth';
+      const subGain = ctx.createGain();
+      const subFilter = ctx.createBiquadFilter();
+      subFilter.type = 'lowpass';
+      subFilter.frequency.setValueAtTime(120, t);
+
+      if (reverse) {
+        subOsc.frequency.setValueAtTime(95, t);
+        subOsc.frequency.exponentialRampToValueAtTime(45, t + duration);
+      } else {
+        subOsc.frequency.setValueAtTime(45, t);
+        subOsc.frequency.exponentialRampToValueAtTime(110, t + duration * 0.6);
+        subOsc.frequency.exponentialRampToValueAtTime(50, t + duration);
+      }
+
+      subGain.gain.setValueAtTime(0.01, t);
+      subGain.gain.linearRampToValueAtTime(0.35, t + duration * 0.3);
+      subGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+      subOsc.connect(subFilter);
+      subFilter.connect(subGain);
+      subGain.connect(this.masterGain);
+
+      subOsc.start(t);
+      subOsc.stop(t + duration);
+    } catch {
+      // safety
+    }
+  }
+
+  /**
+   * Warp Deceleration & Arrival Thud
+   */
+  public playWarpDecelerate() {
+    if (this.muted) return;
+    const ctx = this.initContext();
+    if (!ctx || !this.masterGain) return;
+
+    try {
+      const t = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(180, t);
+      osc.frequency.exponentialRampToValueAtTime(35, t + 0.45);
+
+      gain.gain.setValueAtTime(0.4, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+
+      osc.start(t);
+      osc.stop(t + 0.5);
+    } catch {
+      // safety
+    }
+  }
 }
 
 export const spatialAudio = new SpatialAudioEngine();
