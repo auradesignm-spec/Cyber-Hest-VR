@@ -12,6 +12,7 @@ interface DifficultyHub3DProps {
   selectedDifficulty: DifficultyLevel;
   onSelectDifficulty: (diff: DifficultyLevel) => void;
   onBackToScenarios: () => void;
+  onLaunchGame: () => void;
   lockedTargetId?: string | number | null;
 }
 
@@ -31,17 +32,19 @@ interface DifficultyCardData {
 }
 
 /**
- * 3D Difficulty & Skill Selection Hub (Step 3)
- * - 3 Tiered Floating Holographic Cards (EASY, MEDIUM, HARD)
- * - Curriculum Breakdown & Pacing Indicators
+ * 3D Difficulty & Skill Selection Hub (Step 3) - High Contrast & Crystal Clear Text
+ * - Solid dark obsidian backing panels (#020612)
+ * - Pure white high-contrast typography (#ffffff)
+ * - Vivid colored borders (Emerald, Cyan, Amber) without emissive wash-out
+ * - Clear curriculum bullet points & pacing metrics
  * - Dual support: Mouse Click and VR Blaster Raycast Shoot-to-Select
- * - 3D Back to Scenario Hub Button
  */
 export const DifficultyHub3D: React.FC<DifficultyHub3DProps> = ({
   language,
   selectedDifficulty,
   onSelectDifficulty,
   onBackToScenarios,
+  onLaunchGame,
   lockedTargetId,
 }) => {
   const isArabic = language === 'ar';
@@ -56,16 +59,16 @@ export const DifficultyHub3D: React.FC<DifficultyHub3DProps> = ({
         subtitleEn: 'NETWORKING & CYBER BASICS',
         subtitleAr: 'أساسيات الشبكات والأمن السيبراني',
         timer: '120 SECONDS',
-        speed: '0.55x PACKET FLOW',
+        speed: '0.65x CONTROLLED FLOW',
         focusEn: [
           '• Cisco OSI 7-Layer Architecture',
-          '• TCP/UDP & Secure Protocols (HTTPS/FTP)',
-          '• Threat Identification: Phishing & DDoS',
+          '• TCP/UDP & Secure Protocols (HTTPS/SSH)',
+          '• Threat Identification: Phishing & Malware',
         ],
         focusAr: [
           '• نموذج أوسي OSI ذو الطبقات السبع',
           '• بروتوكولات TCP/UDP وبروتوكول HTTPS',
-          '• رصد التهديدات: التصيد والهجمات الموزعة',
+          '• رصد التهديدات: التصيد والبرمجيات الخبيثة',
         ],
         color: '#10b981',
         xPos: -2.3,
@@ -78,9 +81,9 @@ export const DifficultyHub3D: React.FC<DifficultyHub3DProps> = ({
         subtitleEn: 'PORTS & CRYPTOGRAPHIC SHIELDS',
         subtitleAr: 'المنافذ والأنظمة التشفيرية',
         timer: '90 SECONDS',
-        speed: '1.05x BALANCED PACE',
+        speed: '1.15x BALANCED PACE',
         focusEn: [
-          '• Well-Known Ports: 22, 80, 443, 53',
+          '• Standard Port Mapping: 22, 80, 443, 53',
           '• Symmetric vs Asymmetric Ciphers',
           '• AES-256 vs RSA-4096 vs SHA Hash Logic',
         ],
@@ -100,11 +103,11 @@ export const DifficultyHub3D: React.FC<DifficultyHub3DProps> = ({
         subtitleEn: 'HEX CONVERSIONS & CIDR SUBNETS',
         subtitleAr: 'التحويل الست عشري وأقنعة الشبكات',
         timer: '60 SECONDS',
-        speed: '1.65x EMERGENCY FLOW',
+        speed: '1.75x EMERGENCY FLOW',
         focusEn: [
           '• Real-time Hex Decode: 0x16, 0x01BB',
           '• CIDR Subnet Masks (/12, /16, /24)',
-          '• High-Velocity Threat Interception',
+          '• Multi-Vector Threat Interception',
         ],
         focusAr: [
           '• فك تشفير الرموز الست عشرية الفورية',
@@ -125,11 +128,11 @@ export const DifficultyHub3D: React.FC<DifficultyHub3DProps> = ({
     canvas.height = 960;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      // Solid dark navy background
-      ctx.fillStyle = '#020814';
+      // Solid dark obsidian navy background
+      ctx.fillStyle = '#020612';
       ctx.fillRect(0, 0, 768, 960);
 
-      // Tech Grid
+      // Subtle tech grid
       ctx.strokeStyle = 'rgba(0, 240, 255, 0.06)';
       ctx.lineWidth = 1;
       for (let x = 32; x < 768; x += 32) {
@@ -139,7 +142,7 @@ export const DifficultyHub3D: React.FC<DifficultyHub3DProps> = ({
         ctx.stroke();
       }
 
-      // Border with corner brackets
+      // Outer sharp glowing border
       ctx.strokeStyle = card.color;
       ctx.lineWidth = 8;
       ctx.strokeRect(16, 16, 736, 928);
@@ -159,62 +162,72 @@ export const DifficultyHub3D: React.FC<DifficultyHub3DProps> = ({
       const fontFamily = isArabic ? '"Cairo", sans-serif' : '"JetBrains Mono", monospace';
 
       // Header Tier Title
-      ctx.font = `900 ${isArabic ? '42px' : '36px'} ${fontFamily}`;
-      ctx.fillStyle = '#ffffff';
+      ctx.font = `900 ${isArabic ? '38px' : '36px'} ${fontFamily}`;
+      ctx.fillStyle = card.color;
       ctx.textAlign = 'center';
-      ctx.fillText(isArabic ? card.titleAr : card.titleEn, 384, 85);
+      ctx.fillText(isArabic ? card.titleAr : card.titleEn, 384, 80);
 
       // Subtitle
-      ctx.font = `bold 22px ${fontFamily}`;
-      ctx.fillStyle = card.color;
-      ctx.fillText(isArabic ? card.subtitleAr : card.subtitleEn, 384, 130);
+      ctx.font = `bold 20px ${fontFamily}`;
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText(isArabic ? card.subtitleAr : card.subtitleEn, 384, 125);
 
       // Divider Line
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(48, 160);
-      ctx.lineTo(720, 160);
+      ctx.moveTo(48, 155);
+      ctx.lineTo(720, 155);
       ctx.stroke();
 
-      // Telemetry Specs Box
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-      ctx.fillRect(48, 190, 672, 100);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      // Pacing Stats Box
+      ctx.fillStyle = '#060e1e';
+      ctx.fillRect(48, 175, 672, 90);
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.25)';
       ctx.lineWidth = 2;
-      ctx.strokeRect(48, 190, 672, 100);
+      ctx.strokeRect(48, 175, 672, 90);
 
       ctx.font = 'bold 22px "JetBrains Mono", monospace';
       ctx.fillStyle = '#38bdf8';
       ctx.textAlign = 'center';
-      ctx.fillText(`⏱ TIMER: ${card.timer}  |  ⚡ SPEED: ${card.speed}`, 384, 250);
+      ctx.fillText(`⏱ TIMER: ${card.timer}   |   ⚡ PACING: ${card.speed}`, 384, 230);
 
-      // Curriculum Topics
-      ctx.font = `bold 22px ${fontFamily}`;
-      ctx.fillStyle = '#fde68a';
+      // Training Focus Header
+      ctx.font = `bold 24px ${fontFamily}`;
+      ctx.fillStyle = '#ffffff';
       ctx.textAlign = isArabic ? 'right' : 'left';
-      const topicsHeader = isArabic ? 'محاور التدريب السيبراني:' : 'TRAINING CURRICULUM:';
-      ctx.fillText(topicsHeader, isArabic ? 700 : 64, 340);
+      ctx.fillText(isArabic ? 'محاور تدريب المحاكاة:' : 'TRAINING CURRICULUM:', isArabic ? 720 : 54, 315);
 
-      ctx.font = `normal 22px ${fontFamily}`;
-      ctx.fillStyle = '#e2e8f0';
-      const list = isArabic ? card.focusAr : card.focusEn;
-      list.forEach((item, i) => {
-        ctx.fillText(item, isArabic ? 700 : 64, 395 + i * 48);
+      // Bullet points (Word wrapped, pure white high-contrast text)
+      const bullets = isArabic ? card.focusAr : card.focusEn;
+      let yOffset = 365;
+
+      bullets.forEach((bullet) => {
+        ctx.fillStyle = '#0a162c';
+        ctx.fillRect(48, yOffset - 32, 672, 70);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(48, yOffset - 32, 672, 70);
+
+        ctx.font = `bold 22px ${fontFamily}`;
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = isArabic ? 'right' : 'left';
+        ctx.fillText(bullet, isArabic ? 700 : 68, yOffset + 12);
+        yOffset += 90;
       });
 
       // Interactive Action Prompt Box
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
-      ctx.fillRect(48, 800, 672, 100);
+      ctx.fillStyle = '#081226';
+      ctx.fillRect(48, 820, 672, 90);
       ctx.strokeStyle = card.color;
-      ctx.lineWidth = 3;
-      ctx.strokeRect(48, 800, 672, 100);
+      ctx.lineWidth = 4;
+      ctx.strokeRect(48, 820, 672, 90);
 
       ctx.font = `900 28px ${fontFamily}`;
-      ctx.fillStyle = card.color;
+      ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
-      const promptText = isArabic ? '⚡ انقر أو أطلق للقفز إلى الساحة' : '⚡ CLICK OR SHOOT TO WARP IN';
-      ctx.fillText(promptText, 384, 862);
+      const promptText = isArabic ? '⚡ انقر أو أطلق بالليزر للاختيار' : '⚡ CLICK OR SHOOT TO ENGAGE';
+      ctx.fillText(promptText, 384, 876);
     }
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
@@ -223,28 +236,54 @@ export const DifficultyHub3D: React.FC<DifficultyHub3DProps> = ({
 
   const cardTextures = useMemo(() => {
     return diffCards.map((c) => makeCardTexture(c));
-  }, [diffCards, isArabic]);
+  }, [diffCards, isArabic, selectedDifficulty]);
 
-  // Back Button Texture
+  // Back Button Texture (High Contrast Slate-Navy)
   const backTexture = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 480;
     canvas.height = 120;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.fillStyle = '#061325';
+      ctx.fillStyle = '#071120';
       ctx.fillRect(0, 0, 480, 120);
 
       ctx.strokeStyle = '#64748b';
-      ctx.lineWidth = 4;
+      ctx.lineWidth = 5;
       ctx.strokeRect(6, 6, 468, 108);
 
       const fontFamily = isArabic ? '"Cairo", sans-serif' : '"JetBrains Mono", monospace';
-      ctx.font = `bold 24px ${fontFamily}`;
-      ctx.fillStyle = '#e2e8f0';
+      ctx.font = `900 24px ${fontFamily}`;
+      ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
-      const label = isArabic ? '◄ العودة لاختيار السيناريو' : '◄ BACK TO SCENARIOS';
+      const label = isArabic ? '◄ العودة للسيناريوهات' : '◄ BACK TO SCENARIOS';
       ctx.fillText(label, 240, 68);
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  }, [isArabic]);
+
+  // Launch Button Texture (High Contrast Amber-Navy)
+  const launchTexture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 540;
+    canvas.height = 130;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#1c1304';
+      ctx.fillRect(0, 0, 540, 130);
+
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 6;
+      ctx.strokeRect(6, 6, 528, 118);
+
+      const fontFamily = isArabic ? '"Cairo", sans-serif' : '"JetBrains Mono", monospace';
+      ctx.font = `900 ${isArabic ? '28px' : '26px'} ${fontFamily}`;
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      const label = isArabic ? '⚡ أطلق لبدء المهمة والدفاع ◄' : '⚡ SHOOT TO LAUNCH MISSION ◄';
+      ctx.fillText(label, 270, 75);
     }
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
@@ -258,24 +297,24 @@ export const DifficultyHub3D: React.FC<DifficultyHub3DProps> = ({
     canvas.height = 200;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.fillStyle = '#020814';
+      ctx.fillStyle = '#020612';
       ctx.fillRect(0, 0, 1200, 200);
 
       ctx.strokeStyle = '#00f0ff';
-      ctx.lineWidth = 4;
+      ctx.lineWidth = 5;
       ctx.strokeRect(8, 8, 1184, 184);
 
       const fontFamily = isArabic ? '"Cairo", sans-serif' : '"JetBrains Mono", monospace';
-      ctx.font = `bold 22px ${fontFamily}`;
+      ctx.font = `bold 24px ${fontFamily}`;
       ctx.fillStyle = '#10b981';
       ctx.textAlign = 'center';
-      const stepText = isArabic ? 'المرحلة 3 من 4 // اختيار مستوى المهارة' : 'STEP 3 OF 4 // SKILL TIER SELECTION';
+      const stepText = isArabic ? 'المرحلة 3 من 3 // أطلق بالليزر لتحديد الصعوبة' : 'STEP 3 // SHOOT DIFFICULTY TARGET TO SELECT';
       ctx.fillText(stepText, 600, 60);
 
-      ctx.font = `900 ${isArabic ? '40px' : '36px'} ${fontFamily}`;
+      ctx.font = `900 ${isArabic ? '42px' : '38px'} ${fontFamily}`;
       ctx.fillStyle = '#ffffff';
       const titleText = isArabic ? 'حدد درجة صعوبة التدريب والتوقيت' : 'SELECT TRAINING DIFFICULTY & PACING';
-      ctx.fillText(titleText, 600, 125);
+      ctx.fillText(titleText, 600, 130);
     }
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
@@ -287,19 +326,14 @@ export const DifficultyHub3D: React.FC<DifficultyHub3DProps> = ({
       {/* Top Header Panel (Y: +3.2m, Z: -3.8m) */}
       <mesh position={[0, 3.2, -3.8]}>
         <planeGeometry args={[3.8, 0.65]} />
-        <meshStandardMaterial
-          map={headerTexture}
-          roughness={0.2}
-          metalness={0.8}
-          emissive="#00f0ff"
-          emissiveIntensity={0.2}
-        />
+        <meshBasicMaterial map={headerTexture} toneMapped={false} />
       </mesh>
 
       {/* 3 Holographic Difficulty Cards */}
       {diffCards.map((card, idx) => {
-        const isHovered = hoveredCard === card.id || lockedTargetId === card.id;
-        const scaleVal = isHovered ? 1.15 : 1.0;
+        const isHovered = hoveredCard === card.id || lockedTargetId === `diff_${card.id}`;
+        const isSelected = selectedDifficulty === card.id;
+        const scaleVal = isHovered ? 1.15 : isSelected ? 1.08 : 1.0;
 
         return (
           <group
@@ -314,43 +348,69 @@ export const DifficultyHub3D: React.FC<DifficultyHub3DProps> = ({
               onPointerOut={() => setHoveredCard(null)}
             >
               <planeGeometry args={[1.9, 2.4]} />
-              <meshStandardMaterial
-                map={cardTextures[idx]}
-                roughness={0.15}
-                metalness={0.8}
-                emissive={card.color}
-                emissiveIntensity={isHovered ? 0.75 : 0.25}
-              />
+              <meshBasicMaterial map={cardTextures[idx]} toneMapped={false} />
             </mesh>
 
-            {/* Pedestal Underglow */}
+            {/* Glowing Wireframe Outline on Hover or Selection */}
+            {(isHovered || isSelected) && (
+              <mesh position={[0, 0, 0.01]}>
+                <planeGeometry args={[1.94, 2.44]} />
+                <meshBasicMaterial color={card.color} wireframe toneMapped={false} />
+              </mesh>
+            )}
+
+            {/* Subtle Pedestal Underglow */}
             <pointLight
               position={[0, -1.2, 0.2]}
-              intensity={isHovered ? 2.5 : 1.2}
+              intensity={isHovered ? 2.0 : isSelected ? 1.5 : 0.8}
               color={card.color}
-              distance={3.5}
+              distance={3.0}
             />
           </group>
         );
       })}
 
-      {/* Back to Scenarios Button (Y: +0.25m, Z: -3.0m) */}
-      <mesh
-        position={[0, 0.25, -3.0]}
-        onClick={onBackToScenarios}
-        onPointerOver={() => setHoveredCard('back')}
-        onPointerOut={() => setHoveredCard(null)}
-        scale={hoveredCard === 'back' || lockedTargetId === 'back_scenarios' ? 1.12 : 1.0}
+      {/* Back to Scenarios Button (Y: +0.25m, X: -1.4m, Z: -3.0m) */}
+      <group
+        position={[-1.4, 0.25, -3.0]}
+        scale={hoveredCard === 'back' || lockedTargetId === 'back_scenarios' ? [1.12, 1.12, 1] : [1, 1, 1]}
       >
-        <planeGeometry args={[1.8, 0.42]} />
-        <meshStandardMaterial
-          map={backTexture}
-          roughness={0.2}
-          metalness={0.8}
-          emissive="#64748b"
-          emissiveIntensity={hoveredCard === 'back' || lockedTargetId === 'back_scenarios' ? 0.8 : 0.3}
-        />
-      </mesh>
+        <mesh
+          onClick={onBackToScenarios}
+          onPointerOver={() => setHoveredCard('back')}
+          onPointerOut={() => setHoveredCard(null)}
+        >
+          <planeGeometry args={[1.6, 0.42]} />
+          <meshBasicMaterial map={backTexture} toneMapped={false} />
+        </mesh>
+        {(hoveredCard === 'back' || lockedTargetId === 'back_scenarios') && (
+          <mesh position={[0, 0, 0.01]}>
+            <planeGeometry args={[1.64, 0.46]} />
+            <meshBasicMaterial color="#64748b" wireframe toneMapped={false} />
+          </mesh>
+        )}
+      </group>
+
+      {/* Launch Mission Button (Y: +0.25m, X: +1.4m, Z: -3.0m) */}
+      <group
+        position={[1.4, 0.25, -3.0]}
+        scale={hoveredCard === 'launch' || lockedTargetId === 'launch_game' ? [1.15, 1.15, 1] : [1.05, 1.05, 1]}
+      >
+        <mesh
+          onClick={onLaunchGame}
+          onPointerOver={() => setHoveredCard('launch')}
+          onPointerOut={() => setHoveredCard(null)}
+        >
+          <planeGeometry args={[1.8, 0.48]} />
+          <meshBasicMaterial map={launchTexture} toneMapped={false} />
+        </mesh>
+        {(hoveredCard === 'launch' || lockedTargetId === 'launch_game') && (
+          <mesh position={[0, 0, 0.01]}>
+            <planeGeometry args={[1.84, 0.52]} />
+            <meshBasicMaterial color="#f59e0b" wireframe toneMapped={false} />
+          </mesh>
+        )}
+      </group>
     </group>
   );
 };

@@ -289,8 +289,8 @@ export const ServerRoom: React.FC<ServerRoomProps> = ({ isEmergency = false }) =
 
   return (
     <group name="ServerRoomEnvironment">
-      {/* Dynamic Cyber Volumetric Fog (#030B14 palette) */}
-      <fogExp2 attach="fog" args={['#030b14', 0.055]} />
+      {/* Dynamic Cyber Volumetric Fog (#010812 SOC palette) */}
+      <fogExp2 attach="fog" args={['#010812', 0.055]} />
 
       {/* Balanced Studio PBR Lighting Rig with Emergency Dimming & Subtle Power Fluctuations */}
       <ambientLight ref={ambientLightRef} intensity={isEmergency ? 0.2 : 0.6} color={isEmergency ? '#260a0a' : '#061824'} />
@@ -327,11 +327,27 @@ export const ServerRoom: React.FC<ServerRoomProps> = ({ isEmergency = false }) =
               <pointLight ref={strobe1LightRef} color="#ef4444" intensity={4.5} distance={10} />
               <mesh rotation={[0.4, 0, 0]} position={[0, -1.2, 0.8]}>
                 <cylinderGeometry args={[0.02, 0.7, 2.6, 16, 1, true]} />
-                <meshBasicMaterial ref={strobe1BeamMat1Ref} color="#ef4444" transparent opacity={0.3} side={THREE.DoubleSide} />
+                <meshBasicMaterial
+                  ref={strobe1BeamMat1Ref}
+                  color="#ef4444"
+                  transparent
+                  opacity={0.04}
+                  blending={THREE.AdditiveBlending}
+                  depthWrite={false}
+                  side={THREE.DoubleSide}
+                />
               </mesh>
-              <mesh rotation={[-0.4, 0, Math.PI]} position={[0, -1.2, -0.8]}>
-                <cylinderGeometry args={[0.02, 0.7, 2.6, 16, 1, true]} />
-                <meshBasicMaterial ref={strobe1BeamMat2Ref} color="#ef4444" transparent opacity={0.3} side={THREE.DoubleSide} />
+              <mesh rotation={[-0.4, 0, Math.PI]} position={[0, -0.6, -0.4]}>
+                <cylinderGeometry args={[0.02, 0.35, 1.4, 16, 1, true]} />
+                <meshBasicMaterial
+                  ref={strobe1BeamMat2Ref}
+                  color="#ef4444"
+                  transparent
+                  opacity={0.04}
+                  blending={THREE.AdditiveBlending}
+                  depthWrite={false}
+                  side={THREE.DoubleSide}
+                />
               </mesh>
             </group>
           </group>
@@ -347,14 +363,30 @@ export const ServerRoom: React.FC<ServerRoomProps> = ({ isEmergency = false }) =
               <meshBasicMaterial color="#ef4444" />
             </mesh>
             <group ref={strobe2Ref} position={[0, -0.1, 0]}>
-              <pointLight ref={strobe2LightRef} color="#ef4444" intensity={4.5} distance={10} />
-              <mesh rotation={[0.4, 0, 0]} position={[0, -1.2, 0.8]}>
-                <cylinderGeometry args={[0.02, 0.7, 2.6, 16, 1, true]} />
-                <meshBasicMaterial ref={strobe2BeamMat1Ref} color="#ef4444" transparent opacity={0.3} side={THREE.DoubleSide} />
+              <pointLight ref={strobe2LightRef} color="#ef4444" intensity={3.5} distance={8} />
+              <mesh rotation={[0.4, 0, 0]} position={[0, -0.6, 0.4]}>
+                <cylinderGeometry args={[0.02, 0.35, 1.4, 16, 1, true]} />
+                <meshBasicMaterial
+                  ref={strobe2BeamMat1Ref}
+                  color="#ef4444"
+                  transparent
+                  opacity={0.04}
+                  blending={THREE.AdditiveBlending}
+                  depthWrite={false}
+                  side={THREE.DoubleSide}
+                />
               </mesh>
-              <mesh rotation={[-0.4, 0, Math.PI]} position={[0, -1.2, -0.8]}>
-                <cylinderGeometry args={[0.02, 0.7, 2.6, 16, 1, true]} />
-                <meshBasicMaterial ref={strobe2BeamMat2Ref} color="#ef4444" transparent opacity={0.3} side={THREE.DoubleSide} />
+              <mesh rotation={[-0.4, 0, Math.PI]} position={[0, -0.6, -0.4]}>
+                <cylinderGeometry args={[0.02, 0.35, 1.4, 16, 1, true]} />
+                <meshBasicMaterial
+                  ref={strobe2BeamMat2Ref}
+                  color="#ef4444"
+                  transparent
+                  opacity={0.04}
+                  blending={THREE.AdditiveBlending}
+                  depthWrite={false}
+                  side={THREE.DoubleSide}
+                />
               </mesh>
             </group>
           </group>

@@ -13,22 +13,11 @@ import {
   ScenarioId,
   GameStatus,
   DifficultyLevel,
-  Scenario1Data,
-  Scenario2Data,
-  Scenario3Data,
+  CombatPhase,
   TrainingStepId,
   TrainingState,
   CinematicStep,
 } from './types/game';
-import {
-  generateScenario1,
-  generateScenario2,
-  generateScenario3,
-  validatePortShot,
-  validateCountermeasure,
-  validateSubnetShot,
-  HEX_PORT_TABLE,
-} from './game/rules';
 import { CURRICULUM_QUESTIONS } from './game/curriculum';
 import { spatialAudio } from './audio/SpatialAudio';
 import { ServerRoom } from './components/ServerRoom';
@@ -39,21 +28,18 @@ import { VRPlayer, VRPlayerHandle, TargetNodeInfo } from './components/VRPlayer'
 import { EducationalQuestion3D } from './components/EducationalQuestion3D';
 import { MatrixCodeRain3D } from './components/MatrixCodeRain3D';
 import { WarpTunnel3D } from './components/WarpTunnel3D';
-import { SplashHero3D } from './components/SplashHero3D';
-import { ScenarioHub3D } from './components/ScenarioHub3D';
-import { DifficultyHub3D } from './components/DifficultyHub3D';
-import { Scenario1Firewall } from './components/Scenario1Firewall';
-import { Scenario2Payload } from './components/Scenario2Payload';
-import { Scenario3DDoS } from './components/Scenario3DDoS';
 import { TrainingSimulation } from './components/TrainingSimulation';
 import { TrainingOverlay } from './components/TrainingOverlay';
 import { StartScreen } from './components/StartScreen';
 import { HUDOverlay } from './components/HUDOverlay';
 import { RulebookModal } from './components/RulebookModal';
-import { Glasses, BookOpen, GraduationCap, Volume2, VolumeX, Sparkles } from 'lucide-react';
+import { VictimServerNode3D } from './components/VictimServerNode3D';
+import { SplashHero3D } from './components/SplashHero3D';
+import { ScenarioHub3D } from './components/ScenarioHub3D';
+import { DifficultyHub3D } from './components/DifficultyHub3D';
 
 /**
- * Scene Camera Rig: Sets eye level, coordinates dynamic warp transitions, and updates Web Audio HRTF listener
+ * Scene Camera Rig: Sets eye level, coordinates dynamic warp transitions, and updates Web Audio listener
  */
 function SceneCamera({ cinematicStep }: { cinematicStep: CinematicStep }) {
   const { camera } = useThree();
@@ -103,6 +89,26 @@ export default function App() {
   const [selectedScenarioOption, setSelectedScenarioOption] = useState<ScenarioId | 'random'>('random');
   const [difficulty, setDifficulty] = useState<DifficultyLevel>('medium');
   const [questionIndex, setQuestionIndex] = useState(0);
+
+  // 2-Phase Gameplay Loop State: 'decoding' (Phase 1) vs 'defense' (Phase 2)
+  const [combatPhase, setCombatPhase] = useState<CombatPhase>('decoding');
+  const [hearts, setHearts] = useState(5); // 5 Hearts (HP)
+  const [maxHearts] = useState(5);
+  const [score, setScore] = useState(0);
+  const [timeRemaining, setTimeRemaining] = useState(90);
+
+  // Overclock Combo System
+  const [overclockCombo, setOverclockCombo] = useState(0);
+  const [isOverclockActive, setIsOverclockActive] = useState(false);
+
+  // UI Overlays & Feedback Banners
+  const [isManualOpen, setIsManualOpen] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [lastTeamShout, setLastTeamShout] = useState<string | null>(null);
+  const [isInVR, setIsInVR] = useState(false);
+  const [alarmActive, setAlarmActive] = useState(false);
+  const [screenShake, setScreenShake] = useState(false);
+  const [redVignetteFlash, setRedVignetteFlash] = useState(false);
   const [educationalFeedback, setEducationalFeedback] = useState<{
     messageEn: string;
     messageAr: string;
@@ -112,7 +118,13 @@ export default function App() {
     optionId: string;
     isCorrect: boolean;
   } | null>(null);
+  const [phaseBanner, setPhaseBanner] = useState<{
+    type: 'alarm' | 'purge' | 'overclock';
+    messageEn: string;
+    messageAr: string;
+  } | null>(null);
 
+  // Curriculum Questions for current difficulty
   const currentQuestions = useMemo(() => CURRICULUM_QUESTIONS[difficulty], [difficulty]);
   const currentQuestion = currentQuestions[questionIndex % currentQuestions.length];
 
@@ -121,15 +133,6 @@ export default function App() {
     if (diff === 'hard') return 60;
     return 90;
   }, []);
-
-  const [health, setHealth] = useState(100);
-  const [score, setScore] = useState(0);
-  const [timeRemaining, setTimeRemaining] = useState(90);
-  const [isManualOpen, setIsManualOpen] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [lastTeamShout, setLastTeamShout] = useState<string | null>(null);
-  const [isInVR, setIsInVR] = useState(false);
-  const [alarmActive, setAlarmActive] = useState(false);
 
   // Guided Training Simulation State
   const [trainingState, setTrainingState] = useState<TrainingState>({
@@ -144,11 +147,6 @@ export default function App() {
 
   // Magnetic Aim Target Lock State
   const [lockedTargetId, setLockedTargetId] = useState<string | number | null>(null);
-
-  // Scenario Data States
-  const [scenario1Data, setScenario1Data] = useState<Scenario1Data>(() => generateScenario1(0));
-  const [scenario2Data, setScenario2Data] = useState<Scenario2Data>(() => generateScenario2(0));
-  const [scenario3Data, setScenario3Data] = useState<Scenario3Data>(() => generateScenario3(0));
 
   // Refs
   const vrPlayerRef = useRef<VRPlayerHandle>(null);
@@ -171,37 +169,39 @@ export default function App() {
     return () => unsubscribe();
   }, [xrStore, gameStatus]);
 
-  // Compute Active 3D Target Nodes for Magnetic Aim Assist based on current Cinematic Step & Gameplay Scenario
+  // Active 3D Target Nodes for Magnetic Aim Assist
   const activeTargets: TargetNodeInfo[] = useMemo(() => {
-    // 1. Cinematic 3D Hubs (Step 1, Step 2, Step 3)
+    // Start / Menu Mode: 3D Holographic Shoot-to-Interact Targets
     if (gameStatus === 'start') {
       if (cinematicStep === 'splash') {
         return [
-          { id: 'cta_initialize', position: [0, 1.4, -3.8], radius: 0.65 },
-          { id: 'cta_manual', position: [-1.25, 0.85, -3.8], radius: 0.5 },
-          { id: 'cta_lang', position: [1.25, 0.85, -3.8], radius: 0.5 },
+          { id: 'init_defense', position: [0, 1.4, -3.8], radius: 0.85 },
+          { id: 'training', position: [0, 0.25, -3.8], radius: 0.75 },
+          { id: 'manual', position: [-1.25, 0.85, -3.8], radius: 0.65 },
+          { id: 'lang_toggle', position: [1.25, 0.85, -3.8], radius: 0.65 },
         ];
       }
       if (cinematicStep === 'scenario_select') {
         return [
-          { id: 'scenario-1', position: [-2.3, 1.6, -3.4], radius: 0.75 },
-          { id: 'scenario-2', position: [0.0, 1.6, -3.4], radius: 0.75 },
-          { id: 'scenario-3', position: [2.3, 1.6, -3.4], radius: 0.75 },
-          { id: 'back_splash', position: [0, 0.25, -3.0], radius: 0.5 },
+          { id: 'scenario-1', position: [-2.3, 1.6, -3.4], radius: 0.95 },
+          { id: 'scenario-2', position: [0.0, 1.6, -3.4], radius: 0.95 },
+          { id: 'scenario-3', position: [2.3, 1.6, -3.4], radius: 0.95 },
+          { id: 'back_splash', position: [-1.4, 0.25, -3.0], radius: 0.55 },
+          { id: 'next_difficulty', position: [1.4, 0.25, -3.0], radius: 0.65 },
         ];
       }
       if (cinematicStep === 'difficulty_select') {
         return [
-          { id: 'easy', position: [-2.3, 1.6, -3.4], radius: 0.75 },
-          { id: 'medium', position: [0.0, 1.6, -3.4], radius: 0.75 },
-          { id: 'hard', position: [2.3, 1.6, -3.4], radius: 0.75 },
-          { id: 'back_scenarios', position: [0, 0.25, -3.0], radius: 0.5 },
+          { id: 'diff_easy', position: [-2.3, 1.6, -3.4], radius: 0.95 },
+          { id: 'diff_medium', position: [0.0, 1.6, -3.4], radius: 0.95 },
+          { id: 'diff_hard', position: [2.3, 1.6, -3.4], radius: 0.95 },
+          { id: 'back_scenarios', position: [-1.4, 0.25, -3.0], radius: 0.55 },
+          { id: 'launch_game', position: [1.4, 0.25, -3.0], radius: 0.65 },
         ];
       }
       return [];
     }
 
-    // 2. Training mode target nodes
     if (gameStatus === 'training') {
       if (trainingState.step === 'welcome' || trainingState.step === 'blaster_basics') {
         const list: TargetNodeInfo[] = [];
@@ -220,51 +220,29 @@ export default function App() {
           { id: 'pylon-gamma', position: [1.4, 1.5, -2.8], radius: 0.42 },
         ];
       }
-      if (trainingState.step === 'scenario_firewall') {
-        return [
-          { id: 22, position: [-1.8, 1.6, -3.1], radius: 0.45 },
-          { id: 80, position: [-0.6, 1.85, -3.1], radius: 0.45 },
-          { id: 443, position: [0.6, 1.85, -3.1], radius: 0.45 },
-          { id: 53, position: [1.8, 1.6, -3.1], radius: 0.45 },
-        ];
-      }
-      if (trainingState.step === 'scenario_payload') {
-        return [
-          { id: 'AES-256', position: [-1.5, 1.45, -2.4], radius: 0.45 },
-          { id: 'RSA-4096', position: [-0.5, 1.6, -2.4], radius: 0.45 },
-          { id: 'TLS-1.3', position: [0.5, 1.6, -2.4], radius: 0.45 },
-          { id: 'SHA-256', position: [1.5, 1.45, -2.4], radius: 0.45 },
-        ];
-      }
-      if (trainingState.step === 'scenario_ddos') {
-        return [
-          { id: 'ALPHA', position: [-1.8, 1.8, -2.8], radius: 0.55 },
-          { id: 'BETA', position: [0.0, 2.15, -3.1], radius: 0.55 },
-          { id: 'GAMMA', position: [1.8, 1.8, -2.8], radius: 0.55 },
-        ];
-      }
-      if (trainingState.step === 'graduation') {
-        return [{ id: 'trophy', position: [0, 1.9, -2.2], radius: 0.5 }];
-      }
       return [];
     }
 
     if (gameStatus !== 'playing') return [];
 
-    // 3. Educational Shoot-to-Solve Solution Badges (Y: 1.25m, Z: -3.5m)
-    const positions: [number, number, number][] = [
-      [-1.55, 1.25, -3.5],
-      [0.0, 1.25, -3.5],
-      [1.55, 1.25, -3.5],
-    ];
-    return currentQuestion.options.map((opt, idx) => ({
-      id: opt.id,
-      position: positions[idx] || [0, 1.25, -3.5],
-      radius: 0.55,
-    }));
-  }, [gameStatus, cinematicStep, trainingState, currentQuestion]);
+    // Phase 1 (Decoding): Aim targets are the floating option badges
+    if (combatPhase === 'decoding') {
+      const positions: [number, number, number][] = [
+        [-1.8, 1.0, -4.0],
+        [0.0, 1.0, -4.0],
+        [1.8, 1.0, -4.0],
+      ];
+      return currentQuestion.options.map((opt, idx) => ({
+        id: opt.id,
+        position: positions[idx] || [0, 1.0, -4.0],
+        radius: 0.55,
+      }));
+    }
 
-  // Start or Reset a Scenario
+    return [];
+  }, [gameStatus, trainingState, combatPhase, currentQuestion, cinematicStep]);
+
+  // Start or Reset Scenario Game Loop
   const initScenario = useCallback(
     (targetScenario?: ScenarioId, newDifficulty?: DifficultyLevel) => {
       const activeDiff = newDifficulty || difficulty;
@@ -282,22 +260,27 @@ export default function App() {
       }
 
       setScenarioId(nextId);
-      setHealth(100);
+      setHearts(5);
       setTimeRemaining(getInitialTimer(activeDiff));
       setGameStatus('playing');
       setCinematicStep('playing');
+      setCombatPhase('decoding');
       setQuestionIndex(0);
+      setOverclockCombo(0);
+      setIsOverclockActive(false);
       setEducationalFeedback(null);
       setLastQuestionResult(null);
+      setPhaseBanner(null);
       setLastTeamShout(null);
       setAlarmActive(false);
+      spatialAudio.stopAlarmSiren();
       setLockedTargetId(null);
       spatialAudio.startAmbientHum();
     },
     [selectedScenarioOption, difficulty, getInitialTimer]
   );
 
-  // Cinematic 4-Step Navigation Handlers (with 3D Warp Time Tunnel Transitions)
+  // Menu Transition Warp Triggers
   const handleStartWarpToScenarios = useCallback(() => {
     spatialAudio.playButtonBeep(640);
     spatialAudio.playWarpWhoosh(false);
@@ -309,9 +292,17 @@ export default function App() {
     setCinematicStep('scenario_select');
   }, []);
 
-  const handleSelectScenario = useCallback((sc: ScenarioId) => {
-    setScenarioId(sc);
+  const handleStartWarpToDifficulty = useCallback(() => {
+    spatialAudio.playButtonBeep(720);
+    spatialAudio.playWarpWhoosh(false);
+    setCinematicStep('warp_to_difficulty');
+  }, []);
+
+  const handleSelectScenario = useCallback((sc: ScenarioId | 'random') => {
     setSelectedScenarioOption(sc);
+    if (sc !== 'random') {
+      setScenarioId(sc);
+    }
     spatialAudio.playButtonBeep(720);
     spatialAudio.playWarpWhoosh(false);
     setCinematicStep('warp_to_difficulty');
@@ -322,15 +313,12 @@ export default function App() {
     setCinematicStep('difficulty_select');
   }, []);
 
-  const handleSelectDifficulty = useCallback(
-    (diff: DifficultyLevel) => {
-      setDifficulty(diff);
-      spatialAudio.playButtonBeep(880);
-      spatialAudio.playWarpWhoosh(false);
-      setCinematicStep('warp_to_game');
-    },
-    []
-  );
+  const handleSelectDifficulty = useCallback((diff: DifficultyLevel) => {
+    setDifficulty(diff);
+    spatialAudio.playButtonBeep(880);
+    spatialAudio.playWarpWhoosh(false);
+    setCinematicStep('warp_to_game');
+  }, []);
 
   const handleCompleteWarpToGame = useCallback(() => {
     spatialAudio.playWarpDecelerate();
@@ -367,25 +355,18 @@ export default function App() {
     [initScenario]
   );
 
-  // Countdown Timer & Damage Alarms
+  // Countdown Timer
   useEffect(() => {
     if (gameStatus !== 'playing') return;
 
     const interval = setInterval(() => {
       setTimeRemaining((prev) => {
         if (prev <= 1) {
+          spatialAudio.stopAlarmSiren();
           spatialAudio.playErrorBuzzer();
           vrPlayerRef.current?.triggerHeavyRumble();
           setGameStatus('gameover');
           return 0;
-        }
-        if (prev <= 15) {
-          setAlarmActive(true);
-          if (prev % 3 === 0) {
-            spatialAudio.playAlarmKlaxon();
-          }
-        } else {
-          setAlarmActive(false);
         }
         return prev - 1;
       });
@@ -394,14 +375,30 @@ export default function App() {
     return () => clearInterval(interval);
   }, [gameStatus]);
 
-  // Handle packet reaching target (damage to health)
+  // Handle Threat Packet Collision with Protected Core (Phase 2 Damage)
   const handlePacketBreach = useCallback(() => {
     if (gameStatus !== 'playing') return;
-    setHealth((prev) => {
-      const next = prev - 4;
+
+    // Reset Overclock Combo on miss / core damage
+    setOverclockCombo(0);
+    setIsOverclockActive(false);
+
+    // Trigger Screen Shake, Red Vignette Flash & Rumble
+    setScreenShake(true);
+    setRedVignetteFlash(true);
+    setTimeout(() => {
+      setScreenShake(false);
+      setRedVignetteFlash(false);
+    }, 400);
+
+    vrPlayerRef.current?.triggerHeavyRumble();
+    spatialAudio.playErrorBuzzer();
+
+    setHearts((prev) => {
+      const next = prev - 1;
       if (next <= 0) {
+        spatialAudio.stopAlarmSiren();
         spatialAudio.playErrorBuzzer();
-        vrPlayerRef.current?.triggerHeavyRumble();
         setGameStatus('gameover');
         return 0;
       }
@@ -414,17 +411,72 @@ export default function App() {
     particlesRef.current?.spawnSparks(pos.x, pos.y, pos.z, color);
   }, []);
 
-  // Packet destroyed (spawns voxel shatter + points)
-  const handlePacketDestroyed = useCallback((packetId: number, x: number, y: number, z: number) => {
-    particlesRef.current?.spawnVoxelShatter(x, y, z, '#ef4444');
-    setScore((prev) => prev + 25);
-    setHealth((prev) => Math.min(100, prev + 2));
-  }, []);
+  // Threat Packet Destroyed in Phase 2
+  const handlePacketDestroyed = useCallback(
+    (packetId: number, x: number, y: number, z: number) => {
+      particlesRef.current?.spawnVoxelShatter(x, y, z, '#ef4444');
 
-  // 3-Tier Educational Question Answer Handler (Shoot-to-Solve)
+      // Overclock Combo System
+      setOverclockCombo((prev) => {
+        const next = prev + 1;
+        if (next >= 5) {
+          setIsOverclockActive(true);
+          spatialAudio.playPowerupChime();
+          setPhaseBanner({
+            type: 'overclock',
+            messageEn: '⚡ OVERCLOCK MODE ACTIVATED! 2x SCORE MULTIPLIER',
+            messageAr: '⚡ تفعيل وضع كسر السرعة! مضاعفة النقاط 2x',
+          });
+          setTimeout(() => setPhaseBanner(null), 2000);
+        }
+        return next;
+      });
+
+      const pts = isOverclockActive ? 50 : 25;
+      setScore((prev) => prev + pts);
+
+      // Check if all malware in Phase 2 wave is destroyed (Wave Clear)
+      setTimeout(() => {
+        const remaining = packetSwarmRef.current?.getActiveCount() || 0;
+        if (remaining === 0 && combatPhase === 'defense') {
+          spatialAudio.stopAlarmSiren();
+          setAlarmActive(false);
+          spatialAudio.playVictoryFanfare();
+
+          setPhaseBanner({
+            type: 'purge',
+            messageEn: 'THREAT PURGED! WARPING TO NEXT NODE...',
+            messageAr: 'تم تطهير التهديد بنجاح! القفز بالزمن إلى العقدة التالية...',
+          });
+
+          // Trigger Time Tunnel Warp
+          spatialAudio.playWarpWhoosh(false);
+
+          setTimeout(() => {
+            setPhaseBanner(null);
+            const isLastQuestion = questionIndex >= currentQuestions.length - 1;
+            if (isLastQuestion) {
+              setGameStatus('victory');
+            } else {
+              setQuestionIndex((prev) => prev + 1);
+              setCombatPhase('decoding');
+              setOverclockCombo(0);
+              setIsOverclockActive(false);
+              setEducationalFeedback(null);
+              setLastQuestionResult(null);
+              setTimeRemaining((prev) => Math.min(getInitialTimer(difficulty), prev + 25));
+            }
+          }, 2000);
+        }
+      }, 100);
+    },
+    [combatPhase, isOverclockActive, questionIndex, currentQuestions.length, difficulty, getInitialTimer]
+  );
+
+  // Phase 1 Option Shot (Shoot-to-Solve)
   const handleOptionShot = useCallback(
     (optionId: string, position: [number, number, number]) => {
-      if (gameStatus !== 'playing') return;
+      if (gameStatus !== 'playing' || combatPhase !== 'decoding') return;
 
       const matchedOption = currentQuestion.options.find((opt) => opt.id === optionId);
       const isCorrect = Boolean(matchedOption?.isCorrect);
@@ -435,49 +487,46 @@ export default function App() {
 
       if (isCorrect) {
         spatialAudio.playSuccessChime();
-        particlesRef.current?.spawnSparks(position[0], position[1], position[2], '#10b981');
-        particlesRef.current?.spawnVoxelShatter(0, 3.5, -5.0, '#10b981');
+        particlesRef.current?.spawnSparks(position[0], position[1], position[2], '#00FF66');
+        particlesRef.current?.spawnVoxelShatter(position[0], position[1], position[2], '#00FF66');
+        particlesRef.current?.spawnVoxelShatter(0, 3.5, -5.0, '#00FF66');
         setScore((prev) => prev + 500);
-        packetSwarmRef.current?.destroyAll();
 
-        setEducationalFeedback({
-          messageEn: `CORRECT: ${explanationEn}`,
-          messageAr: `إجابة صحيحة: ${explanationAr}`,
-          isCorrect: true,
-        });
-
-        const isLastQuestion = questionIndex >= currentQuestions.length - 1;
+        // Transition: IMMEDIATELY HIDE all Question and Answer UI panels and launch Phase 2
         setTimeout(() => {
-          if (isLastQuestion) {
-            setGameStatus('victory');
-          } else {
-            setQuestionIndex((prev) => prev + 1);
-            setLastQuestionResult(null);
-            setEducationalFeedback(null);
-            setTimeRemaining((prev) => Math.min(getInitialTimer(difficulty), prev + 20));
-          }
-        }, 1600);
+          setCombatPhase('defense');
+          setEducationalFeedback(null);
+          setLastQuestionResult(null);
+
+          // Atmosphere Shift: Dim ambient lights, rotate red emergency strobes, spatial siren + synth growl
+          setAlarmActive(true);
+          spatialAudio.startAlarmSiren();
+
+          // Controlled wave of 6 to 10 malware packets flying toward Floating Core
+          const packetCount = difficulty === 'easy' ? 6 : difficulty === 'medium' ? 8 : 10;
+          packetSwarmRef.current?.spawnPenaltyPackets(packetCount);
+        }, 320);
       } else {
         spatialAudio.playErrorBuzzer();
         vrPlayerRef.current?.triggerHeavyRumble();
-        particlesRef.current?.spawnSparks(position[0], position[1], position[2], '#ef4444');
-        setAlarmActive(true);
-        setTimeout(() => setAlarmActive(false), 900);
+        particlesRef.current?.spawnSparks(position[0], position[1], position[2], '#FF0055');
+        particlesRef.current?.spawnVoxelShatter(position[0], position[1], position[2], '#FF0055');
 
-        setScore((prev) => Math.max(0, prev - 50));
-        setHealth((prev) => {
-          const next = prev - 15;
+        setScreenShake(true);
+        setRedVignetteFlash(true);
+        setTimeout(() => {
+          setScreenShake(false);
+          setRedVignetteFlash(false);
+        }, 350);
+
+        setHearts((prev) => {
+          const next = prev - 1;
           if (next <= 0) {
+            spatialAudio.stopAlarmSiren();
             setGameStatus('gameover');
             return 0;
           }
           return next;
-        });
-
-        setEducationalFeedback({
-          messageEn: `INCORRECT: ${explanationEn}`,
-          messageAr: `إجابة خاطئة: ${explanationAr}`,
-          isCorrect: false,
         });
 
         setTimeout(() => {
@@ -485,92 +534,7 @@ export default function App() {
         }, 1200);
       }
     },
-    [gameStatus, currentQuestion, questionIndex, currentQuestions.length, difficulty, getInitialTimer]
-  );
-
-  // SCENARIO 1: Port target shot (Legacy fallback)
-  const handlePortShot = useCallback(
-    (portNumber: number) => {
-      if (gameStatus !== 'playing') return;
-
-      const isCorrect = validatePortShot(scenario1Data.targetHex, portNumber);
-      if (isCorrect) {
-        spatialAudio.playSuccessChime();
-        setScore((prev) => prev + 500);
-        packetSwarmRef.current?.destroyAll();
-        setGameStatus('victory');
-      } else {
-        spatialAudio.playErrorBuzzer();
-        vrPlayerRef.current?.triggerHeavyRumble();
-        setHealth((prev) => {
-          const next = prev - 20;
-          if (next <= 0) {
-            setGameStatus('gameover');
-            return 0;
-          }
-          return next;
-        });
-      }
-    },
-    [gameStatus, scenario1Data.targetHex]
-  );
-
-  // SCENARIO 2: Protocol Orb shot
-  const handleShieldApplied = useCallback(
-    (shieldId: string) => {
-      if (gameStatus !== 'playing') return;
-
-      const isCorrect = validateCountermeasure(scenario2Data.correctShield, shieldId);
-      if (isCorrect) {
-        spatialAudio.playSuccessChime();
-        setScore((prev) => prev + 500);
-        setScenario2Data((prev) => ({ ...prev, cleansed: true }));
-        packetSwarmRef.current?.destroyAll();
-        particlesRef.current?.spawnSparks(0, 1.8, -2.5, '#10b981');
-        setTimeout(() => setGameStatus('victory'), 1200);
-      } else {
-        spatialAudio.playErrorBuzzer();
-        vrPlayerRef.current?.triggerHeavyRumble();
-        setHealth((prev) => {
-          const next = prev - 20;
-          if (next <= 0) {
-            setGameStatus('gameover');
-            return 0;
-          }
-          return next;
-        });
-      }
-    },
-    [gameStatus, scenario2Data.correctShield]
-  );
-
-  // SCENARIO 3: Subnet Core Node shot
-  const handleSubnetNodeShot = useCallback(
-    (nodeId: 'ALPHA' | 'BETA' | 'GAMMA') => {
-      if (gameStatus !== 'playing') return;
-
-      const isCorrect = validateSubnetShot(scenario3Data.correctNodeId, nodeId);
-      if (isCorrect) {
-        spatialAudio.playEmpShockwave();
-        setScore((prev) => prev + 600);
-        setScenario3Data((prev) => ({ ...prev, neutralized: true }));
-        packetSwarmRef.current?.destroyAll();
-        particlesRef.current?.spawnVoxelShatter(0, 1.8, -2.8, '#00ffcc');
-        setTimeout(() => setGameStatus('victory'), 1200);
-      } else {
-        spatialAudio.playErrorBuzzer();
-        vrPlayerRef.current?.triggerHeavyRumble();
-        setHealth((prev) => {
-          const next = prev - 20;
-          if (next <= 0) {
-            setGameStatus('gameover');
-            return 0;
-          }
-          return next;
-        });
-      }
-    },
-    [gameStatus, scenario3Data.correctNodeId]
+    [gameStatus, combatPhase, currentQuestion, difficulty]
   );
 
   // Guided Training Hit Handler
@@ -601,69 +565,17 @@ export default function App() {
         });
         return;
       }
-
-      if (step === 'scenario_firewall') {
-        if (Number(targetId) === 80) {
-          particlesRef.current?.spawnSparks(pos[0], pos[1], pos[2], '#10b981');
-          spatialAudio.playSuccessChime();
-          setTrainingState((prev) => ({
-            ...prev,
-            shotTargets: ['80'],
-          }));
-        } else {
-          particlesRef.current?.spawnSparks(pos[0], pos[1], pos[2], '#ef4444');
-          spatialAudio.playErrorBuzzer();
-          vrPlayerRef.current?.triggerHeavyRumble();
-        }
-        return;
-      }
-
-      if (step === 'scenario_payload') {
-        if (targetId === 'AES-256') {
-          particlesRef.current?.spawnSparks(pos[0], pos[1], pos[2], '#10b981');
-          spatialAudio.playSuccessChime();
-          setTrainingState((prev) => ({
-            ...prev,
-            shotTargets: ['AES-256'],
-          }));
-        } else {
-          particlesRef.current?.spawnSparks(pos[0], pos[1], pos[2], '#ef4444');
-          spatialAudio.playErrorBuzzer();
-          vrPlayerRef.current?.triggerHeavyRumble();
-        }
-        return;
-      }
-
-      if (step === 'scenario_ddos') {
-        if (targetId === 'BETA') {
-          particlesRef.current?.spawnVoxelShatter(pos[0], pos[1], pos[2], '#00ffcc');
-          spatialAudio.playEmpShockwave();
-          setTrainingState((prev) => ({
-            ...prev,
-            shotTargets: ['BETA'],
-          }));
-        } else {
-          particlesRef.current?.spawnSparks(pos[0], pos[1], pos[2], '#ef4444');
-          spatialAudio.playErrorBuzzer();
-          vrPlayerRef.current?.triggerHeavyRumble();
-        }
-        return;
-      }
-
-      if (step === 'graduation') {
-        particlesRef.current?.spawnSparks(pos[0], pos[1], pos[2], '#10b981');
-        spatialAudio.playSuccessChime();
-      }
     },
     [trainingState.step]
   );
 
-  // Training Navigation Handlers
+  // Start Training
   const handleStartTraining = useCallback(() => {
     setGameStatus('training');
-    setHealth(100);
+    setHearts(5);
     setTimeRemaining(999);
     setAlarmActive(false);
+    spatialAudio.stopAlarmSiren();
     setLockedTargetId(null);
     setTrainingState({
       step: 'welcome',
@@ -772,41 +684,62 @@ export default function App() {
     }
   }, [language, trainingState.step]);
 
-  // Handle laser fire from VR controller or desktop mouse (Aim, Lock & Shoot to Solve)
+  // Handle laser fire from VR controller or desktop mouse
   const handleFireLaser = useCallback(
     (origin: THREE.Vector3, direction: THREE.Vector3, side: 'left' | 'right' | 'desktop', aimOrigin?: THREE.Vector3) => {
-      const boltColor = side === 'left' ? '#ec4899' : '#00f0ff';
+      const boltColor = isOverclockActive ? '#FFC700' : side === 'left' ? '#ec4899' : '#00f0ff';
       // 1. Spawn traveling 3D volumetric energy bolt
       lasersRef.current?.fireBolt(origin, direction, boltColor, side);
 
       // 2. Muzzle flash sparks at weapon barrel
       particlesRef.current?.spawnSparks(origin.x, origin.y, origin.z, boltColor);
 
-      // CINEMATIC 3D HUBS DISPATCH (Splash Screen, Scenario Hub, Difficulty Hub)
+      // START / MENU MODE DISPATCH (Shoot-to-Interact everywhere!)
       if (gameStatus === 'start') {
         const hitOrigin = aimOrigin || origin;
         const ray = new THREE.Ray(hitOrigin, direction.clone().normalize());
 
         activeTargets.forEach((target) => {
-          const sphere = new THREE.Sphere(new THREE.Vector3(...target.position), target.radius || 0.55);
+          const sphere = new THREE.Sphere(new THREE.Vector3(...target.position), target.radius || 0.65);
           if (ray.intersectsSphere(sphere)) {
-            const id = String(target.id);
-            particlesRef.current?.spawnSparks(target.position[0], target.position[1], target.position[2], '#00f0ff');
+            particlesRef.current?.spawnSparks(target.position[0], target.position[1], target.position[2], '#ffc700');
+            spatialAudio.playSuccessChime();
 
-            if (id === 'cta_initialize') {
+            const tid = String(target.id);
+            if (tid === 'init_defense') {
               handleStartWarpToScenarios();
-            } else if (id === 'cta_manual') {
+            } else if (tid === 'training') {
+              handleStartTraining();
+            } else if (tid === 'manual') {
               setIsManualOpen(true);
-            } else if (id === 'cta_lang') {
-              setLanguage((prev) => (prev === 'en' ? 'ar' : 'en'));
-            } else if (id === 'scenario-1' || id === 'scenario-2' || id === 'scenario-3') {
-              handleSelectScenario(id as ScenarioId);
-            } else if (id === 'back_splash') {
+            } else if (tid === 'lang_toggle') {
+              setLanguage((l) => (l === 'ar' ? 'en' : 'ar'));
+            } else if (tid === 'scenario-1') {
+              handleSelectScenario('scenario-1');
+              handleStartWarpToDifficulty();
+            } else if (tid === 'scenario-2') {
+              handleSelectScenario('scenario-2');
+              handleStartWarpToDifficulty();
+            } else if (tid === 'scenario-3') {
+              handleSelectScenario('scenario-3');
+              handleStartWarpToDifficulty();
+            } else if (tid === 'back_splash') {
               handleBackToSplash();
-            } else if (id === 'easy' || id === 'medium' || id === 'hard') {
-              handleSelectDifficulty(id as DifficultyLevel);
-            } else if (id === 'back_scenarios') {
+            } else if (tid === 'next_difficulty') {
+              handleStartWarpToDifficulty();
+            } else if (tid === 'diff_easy') {
+              setDifficulty('easy');
+              handleSelectDifficulty('easy');
+            } else if (tid === 'diff_medium') {
+              setDifficulty('medium');
+              handleSelectDifficulty('medium');
+            } else if (tid === 'diff_hard') {
+              setDifficulty('hard');
+              handleSelectDifficulty('hard');
+            } else if (tid === 'back_scenarios') {
               handleBackToScenarios();
+            } else if (tid === 'launch_game') {
+              handleSelectDifficulty(difficulty);
             }
           }
         });
@@ -815,12 +748,6 @@ export default function App() {
 
       // TRAINING MODE DISPATCH
       if (gameStatus === 'training') {
-        setTrainingState((prev) => ({
-          ...prev,
-          leftFired: side === 'left' ? true : prev.leftFired,
-          rightFired: side === 'right' || side === 'desktop' ? true : prev.rightFired,
-        }));
-
         const hitOrigin = aimOrigin || origin;
         const ray = new THREE.Ray(hitOrigin, direction.clone().normalize());
 
@@ -833,46 +760,53 @@ export default function App() {
         return;
       }
 
-      // 3. Check hit on packet swarm (using aimOrigin for pinpoint desktop accuracy)
       const hitOrigin = aimOrigin || origin;
-      const hitResult = packetSwarmRef.current?.checkRayHit(hitOrigin, direction);
-      if (hitResult?.hit && hitResult.position) {
-        particlesRef.current?.spawnSparks(hitResult.position.x, hitResult.position.y, hitResult.position.z, boltColor);
+
+      // 3. Phase 2 (Defense): Check hit on malware threat packets
+      if (combatPhase === 'defense') {
+        const hitResult = packetSwarmRef.current?.checkRayHit(hitOrigin, direction);
+        if (hitResult?.hit && hitResult.position) {
+          particlesRef.current?.spawnSparks(hitResult.position.x, hitResult.position.y, hitResult.position.z, boltColor);
+        }
       }
 
-      // 4. Shoot-to-Solve: Raycast against active floating target badges
-      const ray = new THREE.Ray(hitOrigin, direction.clone().normalize());
+      // 4. Phase 1 (Decoding): Raycast against active solution target badges
+      if (combatPhase === 'decoding') {
+        const ray = new THREE.Ray(hitOrigin, direction.clone().normalize());
 
-      activeTargets.forEach((target) => {
-        const sphere = new THREE.Sphere(new THREE.Vector3(...target.position), target.radius || 0.55);
-        if (ray.intersectsSphere(sphere)) {
-          handleOptionShot(String(target.id), target.position);
-          particlesRef.current?.spawnSparks(target.position[0], target.position[1], target.position[2], '#00f0ff');
-        }
-      });
+        activeTargets.forEach((target) => {
+          const sphere = new THREE.Sphere(new THREE.Vector3(...target.position), target.radius || 0.55);
+          if (ray.intersectsSphere(sphere)) {
+            handleOptionShot(String(target.id), target.position);
+            particlesRef.current?.spawnSparks(target.position[0], target.position[1], target.position[2], '#00f0ff');
+          }
+        });
+      }
     },
     [
       gameStatus,
+      combatPhase,
       activeTargets,
+      isOverclockActive,
       handleOptionShot,
       handleTrainingTargetHit,
       handleStartWarpToScenarios,
+      handleStartTraining,
       handleSelectScenario,
+      handleStartWarpToDifficulty,
       handleBackToSplash,
-      handleSelectDifficulty,
       handleBackToScenarios,
+      handleSelectDifficulty,
+      difficulty,
     ]
   );
 
   // Grip action handler
-  const handleGripAction = useCallback(
-    (hand: 'left' | 'right' | 'desktop') => {
-      spatialAudio.playButtonBeep(640);
-    },
-    []
-  );
+  const handleGripAction = useCallback((hand: 'left' | 'right' | 'desktop') => {
+    spatialAudio.playButtonBeep(640);
+  }, []);
 
-  // Table Team Voice Shout Simulation: Context-aware clues for current incident
+  // Table Team Voice Shout Simulation
   const handleTriggerTeamShout = useCallback(() => {
     spatialAudio.playButtonBeep(880);
 
@@ -882,10 +816,9 @@ export default function App() {
       const optLabel = language === 'ar' ? (correctOpt?.labelAr || 'الحل الصحيح') : (correctOpt?.labelEn || 'Correct Countermeasure');
       const text =
         language === 'ar'
-          ? `فريق الطاولة يصرخ: "تحليل بروتوكول [${catLabel}] في الدليل يشير إلى الحل: [${optLabel}]! أطلق على الشارة فوراً!"`
+          ? `فريق الطاولة يصرخ: "تحليل [${catLabel}] في الدليل يشير إلى: [${optLabel}]! أطلق على الشارة فوراً!"`
           : `Table team shouts: "Incident manual says [${catLabel}] requires: [${optLabel}]! Shoot target badge now!"`;
       setLastTeamShout(text);
-      return;
     }
   }, [language, currentQuestion]);
 
@@ -911,7 +844,11 @@ export default function App() {
   }, [xrStore, initScenario]);
 
   return (
-    <div className="relative w-screen h-screen bg-slate-950 overflow-hidden select-none font-sans">
+    <div
+      className={`relative w-screen h-screen bg-[#030914] overflow-hidden select-none font-sans ${
+        screenShake ? 'animate-bounce' : ''
+      }`}
+    >
       {/* 3D WebXR Canvas Viewport */}
       <div className="absolute inset-0 z-0">
         <Canvas
@@ -928,29 +865,29 @@ export default function App() {
           <XR store={xrStore}>
             <SceneCamera cinematicStep={cinematicStep} />
 
-            {/* AAA Server Room 3D Environment (Active during gameplay and training) */}
+            {/* AAA Server Room 3D Environment */}
+            <ServerRoom isEmergency={alarmActive || combatPhase === 'defense' || hearts <= 2} />
+
+            {/* 3D Victim Server Node (Prominently centered in player's field of view) */}
             {gameStatus !== 'start' && (
-              <ServerRoom isEmergency={health < 30 || scenarioId === 'scenario-3'} />
+              <VictimServerNode3D
+                combatPhase={combatPhase}
+                scenarioId={scenarioId}
+                language={language}
+                hearts={hearts}
+                maxHearts={maxHearts}
+                isEmergency={alarmActive || combatPhase === 'defense' || hearts <= 2}
+                position={[0, 0.8, -4.5]}
+                scale={[0.95, 0.95, 0.95]}
+              />
             )}
 
-            {/* Step 1: 3D Matrix Code Rain & Cyber Grid Floor */}
+            {/* 3D Matrix Code Rain in Background on Start */}
             {gameStatus === 'start' && cinematicStep === 'splash' && (
               <MatrixCodeRain3D active={true} />
             )}
 
-            {/* Step 1: 3D Splash Screen Hero with Glitch Typography & Glowing CTAs */}
-            {gameStatus === 'start' && cinematicStep === 'splash' && (
-              <SplashHero3D
-                language={language}
-                onToggleLanguage={() => setLanguage((prev) => (prev === 'en' ? 'ar' : 'en'))}
-                onInitializeDefense={handleStartWarpToScenarios}
-                onOpenManual={() => setIsManualOpen(true)}
-                onStartTraining={handleStartTraining}
-                lockedTargetId={lockedTargetId}
-              />
-            )}
-
-            {/* 3D Warp Time Tunnel Transition (Steps 1->2, 2->3, 3->4 and Reverse Nav) */}
+            {/* 3D Warp Time Tunnel Transition */}
             {gameStatus === 'start' && cinematicStep.startsWith('warp_') && (
               <WarpTunnel3D
                 active={true}
@@ -971,50 +908,28 @@ export default function App() {
               />
             )}
 
-            {/* Step 2: 3D Scenario Selection Hub (3 Floating Holographic Cards) */}
-            {gameStatus === 'start' && cinematicStep === 'scenario_select' && (
-              <ScenarioHub3D
-                language={language}
-                selectedScenario={scenarioId}
-                onSelectScenario={handleSelectScenario}
-                onBackToSplash={handleBackToSplash}
-                lockedTargetId={lockedTargetId}
-              />
-            )}
-
-            {/* Step 3: 3D Difficulty & Skill Selection Hub (3 Tiered Nodes) */}
-            {gameStatus === 'start' && cinematicStep === 'difficulty_select' && (
-              <DifficultyHub3D
-                language={language}
-                selectedDifficulty={difficulty}
-                onSelectDifficulty={handleSelectDifficulty}
-                onBackToScenarios={handleBackToScenarios}
-                lockedTargetId={lockedTargetId}
-              />
-            )}
-
-            {/* GPU/CPU Particle Systems (Sparks, Disintegration, Cyber Dust) */}
+            {/* GPU Particle Systems */}
             <ParticleSystem ref={particlesRef} />
 
             {/* Traveling High-Speed 3D Laser Bolts */}
             <Lasers ref={lasersRef} onBoltHit={handleBoltImpact} />
 
-            {/* Malicious Packet Swarm (Side corridor lanes only, scaled by difficulty) */}
+            {/* Malicious Packet Swarm */}
             <PacketSwarm
               ref={packetSwarmRef}
               scenarioId={scenarioId}
               difficulty={difficulty}
-              active={gameStatus === 'playing'}
+              active={gameStatus === 'playing' && combatPhase === 'defense'}
               onPacketDestroyed={handlePacketDestroyed}
               onPacketBreach={handlePacketBreach}
             />
 
-            {/* VR Player Rig (Blasters with 3D OLED ammo display, Magnetic Aim Assist, Haptics, Wrist HUD) */}
+            {/* VR Player Rig */}
             <VRPlayer
               ref={vrPlayerRef}
               onFireLaser={handleFireLaser}
               onGripAction={handleGripAction}
-              health={health}
+              health={(hearts / maxHearts) * 100}
               timeRemaining={timeRemaining}
               score={score}
               scenarioId={scenarioId}
@@ -1022,6 +937,49 @@ export default function App() {
               activeTargets={activeTargets}
               onTargetLockChanged={setLockedTargetId}
             />
+
+            {/* 3D Shoot-to-Interact Holographic Hubs (Start Mode) */}
+            {gameStatus === 'start' && !cinematicStep.startsWith('warp_') && (
+              <>
+                {cinematicStep === 'splash' && (
+                  <SplashHero3D
+                    language={language}
+                    onToggleLanguage={() => setLanguage((l) => (l === 'ar' ? 'en' : 'ar'))}
+                    onInitializeDefense={handleStartWarpToScenarios}
+                    onOpenManual={() => setIsManualOpen(true)}
+                    onStartTraining={handleStartTraining}
+                    lockedTargetId={lockedTargetId}
+                  />
+                )}
+                {cinematicStep === 'scenario_select' && (
+                  <ScenarioHub3D
+                    language={language}
+                    selectedScenario={selectedScenarioOption}
+                    onSelectScenario={(sc) => {
+                      handleSelectScenario(sc);
+                      spatialAudio.playSuccessChime();
+                      handleStartWarpToDifficulty();
+                    }}
+                    onBackToSplash={handleBackToSplash}
+                    onNextDifficulty={handleStartWarpToDifficulty}
+                    lockedTargetId={lockedTargetId}
+                  />
+                )}
+                {cinematicStep === 'difficulty_select' && (
+                  <DifficultyHub3D
+                    language={language}
+                    selectedDifficulty={difficulty}
+                    onSelectDifficulty={(diff) => {
+                      setDifficulty(diff);
+                      spatialAudio.playSuccessChime();
+                    }}
+                    onBackToScenarios={handleBackToScenarios}
+                    onLaunchGame={() => handleSelectDifficulty(difficulty)}
+                    lockedTargetId={lockedTargetId}
+                  />
+                )}
+              </>
+            )}
 
             {/* Guided Training Simulation 3D Scene */}
             {gameStatus === 'training' && (
@@ -1036,8 +994,8 @@ export default function App() {
               />
             )}
 
-            {/* 3D Educational Shoot-to-Solve Question Board & Solution Badges (Crisp Canvas on Solid Navy Opaque Quads) */}
-            {gameStatus !== 'training' && (gameStatus === 'playing' || gameStatus === 'victory') && (
+            {/* 3D Educational Shoot-to-Solve Question Board & Solution Badges (PHASE 1 ONLY - Hidden during Combat Phase 2) */}
+            {gameStatus !== 'training' && (gameStatus === 'playing' || gameStatus === 'victory') && combatPhase === 'decoding' && (
               <EducationalQuestion3D
                 question={currentQuestion}
                 questionIndex={questionIndex}
@@ -1046,124 +1004,95 @@ export default function App() {
                 lockedTargetId={lockedTargetId}
                 onSelectOption={(optionId) => {
                   const target = activeTargets.find((t) => t.id === optionId);
-                  handleOptionShot(optionId, target?.position || [0, 1.25, -3.5]);
+                  handleOptionShot(optionId, target?.position || [0, 1.0, -4.0]);
                 }}
                 lastFeedback={lastQuestionResult}
               />
             )}
 
-            {/* Sharp Visuals Post-Processing (Desktop mode: Low bloom, no halo blur, crisp high-contrast cards) */}
+            {/* Sharp Visuals Post-Processing */}
             {!isInVR && (
               <EffectComposer multisampling={0}>
                 <Bloom
-                  luminanceThreshold={0.8}
+                  luminanceThreshold={0.88}
                   mipmapBlur={false}
-                  intensity={0.25}
+                  intensity={0.16}
                 />
                 <ChromaticAberration
-                  offset={alarmActive ? new THREE.Vector2(0.003, 0.003) : new THREE.Vector2(0.0001, 0.0001)}
+                  offset={alarmActive ? new THREE.Vector2(0.0004, 0.0004) : new THREE.Vector2(0.0001, 0.0001)}
                 />
-                <Vignette eskil={false} offset={0.15} darkness={0.65} />
+                <Vignette eskil={false} offset={0.15} darkness={0.45} />
               </EffectComposer>
             )}
           </XR>
         </Canvas>
       </div>
 
-      {/* Sleek Top Bar for Cinematic Navigation & Quick Controls (Non-intrusive, zero viewport occlusion) */}
+      {/* 2D HTML/CSS Menu Overlay (Fixes 3D plane unreadable dark contrast bugs) */}
       {gameStatus === 'start' && !isInVR && (
-        <header
-          className="fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-6 py-3 bg-slate-950/70 border-b border-cyan-500/20 backdrop-blur-md"
-          dir={language === 'ar' ? 'rtl' : 'ltr'}
-        >
-          {/* Zone 1: Brand Wordmark & Cinematic Step Indicator */}
-          <div className="flex items-center gap-3">
-            <span className="text-base sm:text-lg font-black tracking-wider text-cyan-400 font-mono">
-              CYBER HEIST: NODE DEFENDER
-            </span>
-            <span className="hidden sm:inline-block text-xs font-mono text-emerald-400 border border-emerald-500/30 bg-emerald-950/40 px-2 py-0.5 rounded">
-              {cinematicStep === 'splash' && (language === 'ar' ? 'المرحلة 1: البوابة الرئيسية' : 'STEP 1 // MAIN GATEWAY')}
-              {(cinematicStep === 'scenario_select' || cinematicStep === 'warp_to_scenario' || cinematicStep === 'warp_reverse_to_scenario') && (language === 'ar' ? 'المرحلة 2: اختيار السيناريو' : 'STEP 2 // SCENARIO HUB')}
-              {(cinematicStep === 'difficulty_select' || cinematicStep === 'warp_to_difficulty' || cinematicStep === 'warp_to_game') && (language === 'ar' ? 'المرحلة 3: مستوى الصعوبة' : 'STEP 3 // DIFFICULTY HUB')}
-            </span>
-          </div>
-
-          {/* Zone 2: Navigation Links / Direct Stage Jump */}
-          <nav className="hidden md:flex items-center gap-4 text-xs font-mono text-slate-400">
-            <button
-              onClick={() => {
-                spatialAudio.playButtonBeep(520);
-                setCinematicStep('splash');
-              }}
-              className={`hover:text-cyan-300 transition-colors cursor-pointer ${cinematicStep === 'splash' ? 'text-cyan-400 font-bold' : ''}`}
-            >
-              {language === 'ar' ? '01. البداية' : '01. Splash'}
-            </button>
-            <span>/</span>
-            <button
-              onClick={handleStartWarpToScenarios}
-              className={`hover:text-cyan-300 transition-colors cursor-pointer ${cinematicStep === 'scenario_select' ? 'text-cyan-400 font-bold' : ''}`}
-            >
-              {language === 'ar' ? '02. السيناريوهات' : '02. Scenarios'}
-            </button>
-            <span>/</span>
-            <button
-              onClick={() => {
-                spatialAudio.playButtonBeep(640);
-                spatialAudio.playWarpWhoosh(false);
-                setCinematicStep('warp_to_difficulty');
-              }}
-              className={`hover:text-cyan-300 transition-colors cursor-pointer ${cinematicStep === 'difficulty_select' ? 'text-cyan-400 font-bold' : ''}`}
-            >
-              {language === 'ar' ? '03. الصعوبة' : '03. Difficulty'}
-            </button>
-          </nav>
-
-          {/* Zone 3: Actions (Enter VR, Incident Rulebook, Training, Mute, Language) */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              onClick={() => setLanguage((prev) => (prev === 'en' ? 'ar' : 'en'))}
-              className="px-2.5 py-1 text-xs font-mono rounded bg-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:border-cyan-400 transition-colors cursor-pointer"
-            >
-              {language === 'ar' ? 'EN' : 'عربي'}
-            </button>
-
-            <button
-              onClick={handleToggleMute}
-              className="p-1.5 rounded bg-slate-900 border border-slate-700 text-slate-300 hover:text-cyan-400 transition-colors cursor-pointer"
-              title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
-            >
-              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-            </button>
-
-            <button
-              onClick={() => setIsManualOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono rounded bg-amber-950/60 border border-amber-500/50 text-amber-300 hover:bg-amber-900/60 transition-colors cursor-pointer"
-            >
-              <BookOpen className="w-3.5 h-3.5" />
-              <span>{language === 'ar' ? 'الدليل' : 'Rulebook'}</span>
-            </button>
-
-            <button
-              onClick={handleStartTraining}
-              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono rounded bg-purple-950/60 border border-purple-500/50 text-purple-300 hover:bg-purple-900/60 transition-colors cursor-pointer"
-            >
-              <GraduationCap className="w-3.5 h-3.5" />
-              <span>{language === 'ar' ? 'محاكي التدريب' : 'Training Sim'}</span>
-            </button>
-
-            <button
-              onClick={handleEnterVR}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold font-mono rounded bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-lg shadow-cyan-500/20 hover:from-cyan-500 hover:to-blue-500 transition-all cursor-pointer"
-            >
-              <Glasses className="w-4 h-4" />
-              <span>{language === 'ar' ? 'دخول VR' : 'ENTER VR'}</span>
-            </button>
-          </div>
-        </header>
+        <StartScreen
+          language={language}
+          onSelectLanguage={setLanguage}
+          difficulty={difficulty}
+          onSelectDifficulty={setDifficulty}
+          selectedScenario={selectedScenarioOption}
+          onSelectScenario={handleSelectScenario}
+          cinematicStep={cinematicStep}
+          onGoToScenarioSelect={handleStartWarpToScenarios}
+          onGoToDifficultySelect={() => handleSelectDifficulty(difficulty)}
+          onBackToSplash={handleBackToSplash}
+          onBackToScenarioSelect={handleBackToScenarios}
+          onStartGame={() => handleSelectDifficulty(difficulty)}
+          onEnterVR={handleEnterVR}
+          onPlayDesktop={() => initScenario()}
+          onStartTraining={handleStartTraining}
+          onOpenManual={() => setIsManualOpen(true)}
+          isMuted={isMuted}
+          onToggleMute={handleToggleMute}
+        />
       )}
 
-      {/* Guided Training Simulation HUD Overlay */}
+      {/* 2D In-Game HUD Overlay */}
+      {gameStatus !== 'start' && gameStatus !== 'training' && !isInVR && (
+        <HUDOverlay
+          language={language}
+          scenarioId={scenarioId}
+          gameStatus={gameStatus}
+          combatPhase={combatPhase}
+          difficulty={difficulty}
+          onChangeDifficulty={handleChangeDifficulty}
+          timeRemaining={timeRemaining}
+          hearts={hearts}
+          maxHearts={maxHearts}
+          score={score}
+          overclockCombo={overclockCombo}
+          isOverclockActive={isOverclockActive}
+          isMuted={isMuted}
+          onToggleMute={handleToggleMute}
+          onOpenManual={() => setIsManualOpen(true)}
+          onRestartScenario={() => initScenario()}
+          onNextScenarioHub={() => {
+            spatialAudio.stopAlarmSiren();
+            spatialAudio.playWarpWhoosh(false);
+            setGameStatus('start');
+            setCinematicStep('scenario_select');
+          }}
+          onReturnToMenu={() => {
+            spatialAudio.stopAlarmSiren();
+            spatialAudio.playWarpWhoosh(true);
+            setGameStatus('start');
+            setCinematicStep('splash');
+          }}
+          onOpenTraining={handleStartTraining}
+          onTriggerTeamShout={handleTriggerTeamShout}
+          lastTeamShout={lastTeamShout}
+          educationalFeedback={educationalFeedback}
+          phaseBanner={phaseBanner}
+          vrActive={isInVR}
+        />
+      )}
+
+      {/* Guided Training Overlay */}
       {gameStatus === 'training' && !isInVR && (
         <TrainingOverlay
           language={language}
@@ -1181,39 +1110,17 @@ export default function App() {
         />
       )}
 
-      {/* Diegetic Strictness: 2D Screen Overlays are ONLY rendered in desktop simulator mode; strictly removed in VR */}
-      {gameStatus !== 'start' && gameStatus !== 'training' && !isInVR && (
-        <HUDOverlay
-          language={language}
-          scenarioId={scenarioId}
-          gameStatus={gameStatus}
-          difficulty={difficulty}
-          onChangeDifficulty={handleChangeDifficulty}
-          timeRemaining={timeRemaining}
-          health={health}
-          score={score}
-          isMuted={isMuted}
-          onToggleMute={handleToggleMute}
-          onOpenManual={() => setIsManualOpen(true)}
-          onRestartScenario={() => initScenario()}
-          onReturnToMenu={() => {
-            setGameStatus('start');
-            setCinematicStep('splash');
-          }}
-          onOpenTraining={handleStartTraining}
-          onTriggerTeamShout={handleTriggerTeamShout}
-          lastTeamShout={lastTeamShout}
-          educationalFeedback={educationalFeedback}
-          vrActive={isInVR}
-        />
-      )}
-
-      {/* Interactive Incident Response Manual Modal */}
+      {/* Physical Incident Response Rulebook Modal */}
       <RulebookModal
-        language={language}
         isOpen={isManualOpen}
         onClose={() => setIsManualOpen(false)}
+        language={language}
       />
+
+      {/* Red Vignette Damage Flash Overlay on Core Breach or Wrong Hit */}
+      {redVignetteFlash && (
+        <div className="pointer-events-none fixed inset-0 z-50 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(255,0,85,0.45)_100%)] animate-pulse" />
+      )}
     </div>
   );
 }

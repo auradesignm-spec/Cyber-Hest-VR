@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Language, ScenarioId, GameStatus, DifficultyLevel } from '../types/game';
+import { Language, ScenarioId, GameStatus, DifficultyLevel, CombatPhase } from '../types/game';
 import {
   Shield,
   Clock,
@@ -23,26 +23,37 @@ import {
   Gauge,
   CheckCircle,
   AlertTriangle,
+  Zap,
+  Crosshair,
+  Flame,
+  Home,
+  ArrowRight,
 } from 'lucide-react';
 
 interface HUDOverlayProps {
   language: Language;
   scenarioId: ScenarioId;
   gameStatus: GameStatus;
+  combatPhase?: CombatPhase;
   difficulty?: DifficultyLevel;
   onChangeDifficulty?: (d: DifficultyLevel) => void;
   timeRemaining: number;
-  health: number; // 0 - 100
+  hearts?: number; // 0 to 5 hearts
+  maxHearts?: number; // 5
   score: number;
+  overclockCombo?: number;
+  isOverclockActive?: boolean;
   isMuted: boolean;
   onToggleMute: () => void;
   onOpenManual: () => void;
   onRestartScenario: () => void;
+  onNextScenarioHub: () => void;
   onReturnToMenu: () => void;
   onOpenTraining?: () => void;
   onTriggerTeamShout: () => void;
   lastTeamShout: string | null;
   educationalFeedback?: { messageEn: string; messageAr: string; isCorrect: boolean } | null;
+  phaseBanner?: { type: 'alarm' | 'purge' | 'overclock'; messageEn: string; messageAr: string } | null;
   vrActive: boolean;
 }
 
@@ -50,20 +61,26 @@ export const HUDOverlay: React.FC<HUDOverlayProps> = ({
   language,
   scenarioId,
   gameStatus,
+  combatPhase = 'decoding',
   difficulty = 'medium',
   onChangeDifficulty,
   timeRemaining,
-  health,
+  hearts = 5,
+  maxHearts = 5,
   score,
+  overclockCombo = 0,
+  isOverclockActive = false,
   isMuted,
   onToggleMute,
   onOpenManual,
   onRestartScenario,
+  onNextScenarioHub,
   onReturnToMenu,
   onOpenTraining,
   onTriggerTeamShout,
   lastTeamShout,
   educationalFeedback,
+  phaseBanner,
   vrActive,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -84,101 +101,185 @@ export const HUDOverlay: React.FC<HUDOverlayProps> = ({
     },
   };
 
-  // Auto-Hide Flat Overlays in VR mode: keep the VR field-of-view completely unobstructed
+  // In VR mode, hide 2D HTML overlay so 3D field-of-view remains clear
   if (vrActive) return null;
 
   return (
     <div
       className="pointer-events-none fixed inset-0 z-30 flex flex-col justify-between p-3 sm:p-5 no-game-shoot"
       dir={isArabic ? 'rtl' : 'ltr'}
+      style={{ fontFamily: isArabic ? "'Cairo', sans-serif" : "'JetBrains Mono', monospace" }}
     >
+      {/* Subtle Cyberpunk Scanline Effect for HUD */}
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(0,240,255,0.02)_1px,transparent_1px)] bg-[size:100%_4px] opacity-40" />
+
       {/* Top Header Bar */}
-      <div className="pointer-events-auto flex items-center justify-between gap-3 w-full max-w-5xl mx-auto">
-        {/* Left: Mission Badge & Health */}
-        <div className="flex items-center gap-3 p-2.5 px-4 rounded-xl bg-slate-950/80 border border-cyan-500/30 backdrop-blur-sm text-slate-100 shadow-lg">
-          <Shield className="w-5 h-5 text-cyan-400 shrink-0" />
+      <div className="pointer-events-auto flex items-center justify-between gap-3 w-full max-w-5xl mx-auto relative z-10">
+        {/* Sleek Top-Left Neon HP Bar & Core Status */}
+        <div className="flex items-center gap-3.5 p-3 px-4.5 rounded-2xl bg-[#020611]/85 border border-cyan-500/50 backdrop-blur-xl text-slate-100 shadow-[0_0_25px_rgba(0,240,255,0.2)]">
+          <div className="relative">
+            <Shield className={`w-5 h-5 ${combatPhase === 'defense' ? 'text-red-400 animate-pulse' : 'text-cyan-400'}`} />
+            {combatPhase === 'defense' && (
+              <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+              </span>
+            )}
+          </div>
           <div>
-            <div className="text-xs font-mono font-bold text-cyan-300">
-              {isArabic ? scenarioTitles[scenarioId].ar : scenarioTitles[scenarioId].en}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black tracking-wider text-cyan-300">
+                {isArabic ? scenarioTitles[scenarioId].ar : scenarioTitles[scenarioId].en}
+              </span>
+              <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded border ${
+                hearts > 2 
+                  ? 'border-emerald-500/40 text-emerald-400 bg-emerald-500/10' 
+                  : 'border-red-500/60 text-red-400 bg-red-500/10 animate-pulse'
+              }`}>
+                {Math.round((hearts / maxHearts) * 100)}% INTEGRITY
+              </span>
             </div>
-            {/* Health Bar */}
-            <div className="flex items-center gap-2 mt-1">
-              <Heart className="w-3.5 h-3.5 text-red-400 shrink-0" />
-              <div className="w-24 sm:w-36 h-2 rounded-full bg-slate-800 overflow-hidden">
-                <div
-                  className={`h-full transition-all duration-300 ${
-                    health > 50 ? 'bg-emerald-400' : health > 25 ? 'bg-amber-400' : 'bg-red-500'
-                  }`}
-                  style={{ width: `${Math.max(0, health)}%` }}
-                />
+
+            {/* Sleek Neon HP Energy Bar + Hearts */}
+            <div className="flex items-center gap-2 mt-1.5">
+              <span className="text-[10px] font-black tracking-widest text-slate-400">
+                {isArabic ? 'صمود النواة:' : 'CORE HP:'}
+              </span>
+              <div className="flex items-center gap-1.5">
+                {Array.from({ length: maxHearts }).map((_, idx) => (
+                  <div key={idx} className="relative flex items-center justify-center">
+                    <Heart
+                      className={`w-4 h-4 transition-all duration-300 ${
+                        idx < hearts
+                          ? 'text-red-500 fill-red-500 drop-shadow-[0_0_8px_rgba(255,0,85,0.9)]'
+                          : 'text-slate-800 fill-slate-900/60'
+                      }`}
+                    />
+                    {idx < hearts && (
+                      <span className="absolute inset-0 rounded-full bg-red-500/20 blur-sm pointer-events-none" />
+                    )}
+                  </div>
+                ))}
               </div>
-              <span className="text-[10px] font-mono text-slate-400">{health}%</span>
             </div>
           </div>
         </div>
 
-        {/* Center: Timer & Score & Difficulty */}
-        <div className="flex items-center gap-3 sm:gap-4 p-2.5 px-4 rounded-xl bg-slate-950/80 border border-slate-800 backdrop-blur-sm text-slate-100 shadow-lg">
+        {/* Center: Phase Indicator, Timer, Score, Overclock */}
+        <div className="flex items-center gap-3 sm:gap-4 p-2.5 px-4.5 rounded-2xl bg-[#020611]/85 border border-cyan-500/40 backdrop-blur-xl text-slate-100 shadow-[0_0_20px_rgba(0,240,255,0.15)]">
+          {/* Phase Badge */}
+          <div className="flex items-center gap-1.5 font-bold text-xs">
+            {combatPhase === 'decoding' ? (
+              <span className="px-2.5 py-1 rounded-xl bg-cyan-500/15 text-cyan-300 border border-cyan-400/60 flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,240,255,0.25)]">
+                <Crosshair className="w-3.5 h-3.5 text-cyan-400" />
+                <span>{isArabic ? 'المرحلة 1: فك الشفرة' : 'PHASE 1: DECODE'}</span>
+              </span>
+            ) : (
+              <span className="px-2.5 py-1 rounded-xl bg-red-500/20 text-red-300 border border-red-500/80 flex items-center gap-1.5 shadow-[0_0_15px_rgba(255,0,85,0.4)] animate-pulse">
+                <Flame className="w-3.5 h-3.5 text-red-400 fill-red-500" />
+                <span>{isArabic ? 'المرحلة 2: صد الهجوم' : 'PHASE 2: DEFEND CORE'}</span>
+              </span>
+            )}
+          </div>
+
+          <div className="h-4 w-px bg-slate-700/80" />
+
+          {/* Overclock Combo */}
+          {isOverclockActive ? (
+            <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-amber-400/20 text-amber-300 border border-amber-400/80 font-black text-xs shadow-[0_0_12px_rgba(245,158,11,0.6)] animate-bounce">
+              <Zap className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+              <span>OVERCLOCK x2!</span>
+            </div>
+          ) : overclockCombo > 0 ? (
+            <div className="text-xs font-mono font-bold text-cyan-300">
+              COMBO x{overclockCombo}
+            </div>
+          ) : null}
+
           {/* Difficulty Badge */}
-          <div className="flex items-center gap-1 font-mono text-[11px]">
+          <div className="flex items-center gap-1.5 font-bold text-xs hidden md:flex">
             <Gauge className="w-3.5 h-3.5 text-cyan-400" />
             <span
               className={
                 difficulty === 'easy'
-                  ? 'text-emerald-400 font-bold'
+                  ? 'text-emerald-400 font-mono'
                   : difficulty === 'medium'
-                  ? 'text-cyan-300 font-bold'
-                  : 'text-amber-400 font-bold'
+                  ? 'text-cyan-300 font-mono'
+                  : 'text-amber-400 font-mono'
               }
             >
               {difficulty.toUpperCase()}
             </span>
           </div>
 
-          <div className="h-4 w-px bg-slate-800" />
+          <div className="h-4 w-px bg-slate-700/80" />
 
-          <div className="flex items-center gap-1.5 font-mono text-xs sm:text-sm">
+          {/* Timer */}
+          <div className="flex items-center gap-1.5 font-mono font-bold text-xs sm:text-sm">
             <Clock className="w-4 h-4 text-amber-400" />
-            <span className={timeRemaining < 20 ? 'text-red-400 font-bold' : 'text-slate-200'}>
+            <span className={timeRemaining < 20 ? 'text-red-400 font-black animate-pulse' : 'text-slate-200'}>
               {Math.floor(timeRemaining / 60)}:
               {(timeRemaining % 60).toString().padStart(2, '0')}
             </span>
           </div>
 
-          <div className="h-4 w-px bg-slate-800" />
+          <div className="h-4 w-px bg-slate-700/80" />
 
-          <div className="flex items-center gap-1.5 font-mono text-xs sm:text-sm">
+          {/* Score */}
+          <div className="flex items-center gap-1.5 font-mono font-bold text-xs sm:text-sm">
             <Trophy className="w-4 h-4 text-cyan-400" />
-            <span className="text-cyan-300 font-bold">{score} PTS</span>
+            <span className="text-cyan-300">{score} PTS</span>
           </div>
         </div>
 
-        {/* Right: Quick Controls */}
+        {/* Right: Manual & Sound */}
         <div className="flex items-center gap-2">
           <button
             onClick={onOpenManual}
-            className="pointer-events-auto flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-mono font-bold transition-all shadow-md cursor-pointer"
+            className="pointer-events-auto flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#020611] border border-amber-500/80 hover:bg-amber-500/20 text-amber-300 text-xs font-black transition-all cursor-pointer shadow-[0_0_10px_rgba(245,158,11,0.25)]"
           >
-            <BookOpen className="w-4 h-4" />
-            <span className="hidden sm:inline">{isArabic ? 'دليل الطاولة' : 'Table Rulebook'}</span>
+            <BookOpen className="w-4 h-4 text-amber-400" />
+            <span className="hidden sm:inline">{isArabic ? 'الدليل' : 'Rulebook'}</span>
           </button>
 
           <button
             onClick={onToggleMute}
-            className="pointer-events-auto p-2 rounded-xl bg-slate-950/80 hover:bg-slate-900 border border-slate-800 text-slate-300 transition-all cursor-pointer"
+            className="pointer-events-auto p-2 rounded-xl bg-[#020611] border border-slate-700 hover:border-cyan-400 text-slate-300 hover:text-cyan-400 transition-all cursor-pointer shadow-sm"
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4" />}
           </button>
         </div>
       </div>
 
-      {/* Floating Educational Feedback Banner (Immediate Correct / Incorrect Guidance) */}
-      {educationalFeedback && (
+      {/* Phase Transition & Counterattack Banners */}
+      {phaseBanner && (
         <div
-          className={`pointer-events-auto mx-auto my-2 px-5 py-3 rounded-2xl border backdrop-blur-md shadow-2xl flex items-center gap-3 text-xs sm:text-sm font-mono max-w-xl transition-all animate-in fade-in slide-in-from-top-2 duration-200 ${
+          className={`pointer-events-auto mx-auto my-3 px-6 py-3.5 rounded-2xl border-2 backdrop-blur-xl shadow-2xl flex items-center gap-3 text-sm sm:text-base font-black max-w-xl transition-all animate-in zoom-in duration-200 relative z-20 ${
+            phaseBanner.type === 'alarm'
+              ? 'bg-[#020611]/90 border-red-500 text-red-200 shadow-[0_0_35px_rgba(255,0,85,0.6)] animate-pulse'
+              : phaseBanner.type === 'purge'
+              ? 'bg-[#020611]/90 border-emerald-400 text-emerald-200 shadow-[0_0_35px_rgba(16,185,129,0.6)]'
+              : 'bg-[#020611]/90 border-amber-400 text-amber-300 shadow-[0_0_35px_rgba(245,158,11,0.6)]'
+          }`}
+        >
+          {phaseBanner.type === 'alarm' ? (
+            <AlertTriangle className="w-6 h-6 text-red-400 shrink-0" />
+          ) : phaseBanner.type === 'purge' ? (
+            <CheckCircle className="w-6 h-6 text-emerald-400 shrink-0" />
+          ) : (
+            <Zap className="w-6 h-6 text-amber-400 fill-amber-400 shrink-0" />
+          )}
+          <span>{isArabic ? phaseBanner.messageAr : phaseBanner.messageEn}</span>
+        </div>
+      )}
+
+      {/* Educational Feedback Banner: ONLY shown during Phase 1 Decoding, never during Combat Phase 2 */}
+      {educationalFeedback && !phaseBanner && combatPhase === 'decoding' && (
+        <div
+          className={`pointer-events-auto mx-auto my-2 px-5 py-3 rounded-2xl border-2 backdrop-blur-xl shadow-2xl flex items-center gap-3 text-xs sm:text-sm font-bold max-w-xl transition-all animate-in fade-in slide-in-from-top-2 duration-200 relative z-20 ${
             educationalFeedback.isCorrect
-              ? 'bg-emerald-950/95 border-emerald-400 text-emerald-200'
-              : 'bg-red-950/95 border-red-400 text-red-200'
+              ? 'bg-[#020611]/90 border-emerald-400 text-emerald-200 shadow-[0_0_20px_rgba(16,185,129,0.3)]'
+              : 'bg-[#020611]/90 border-red-500 text-red-200 shadow-[0_0_20px_rgba(255,0,85,0.4)]'
           }`}
         >
           {educationalFeedback.isCorrect ? (
@@ -186,124 +287,132 @@ export const HUDOverlay: React.FC<HUDOverlayProps> = ({
           ) : (
             <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
           )}
-          <span className="font-semibold leading-relaxed">
+          <span className="leading-relaxed font-semibold">
             {isArabic ? educationalFeedback.messageAr : educationalFeedback.messageEn}
           </span>
         </div>
       )}
 
-      {/* Middle Banner: Victory or Defeat Overlay Modal */}
+      {/* Victory Overlay Modal */}
       {gameStatus === 'victory' && (
-        <div className="pointer-events-auto my-auto mx-auto p-6 max-w-md w-full rounded-2xl bg-slate-950/95 border-2 border-emerald-500 text-center shadow-[0_0_50px_rgba(16,185,129,0.3)] animate-in fade-in zoom-in duration-200">
-          <div className="inline-flex p-3 rounded-full bg-emerald-500/20 text-emerald-400 mb-3">
-            <Sparkles className="w-8 h-8" />
+        <div className="pointer-events-auto my-auto mx-auto p-7 max-w-md w-full rounded-2xl bg-[#020611]/95 border-2 border-emerald-400 text-center shadow-[0_0_60px_rgba(16,185,129,0.5)] backdrop-blur-2xl animate-in fade-in zoom-in duration-200 relative z-30">
+          <div className="inline-flex p-3.5 rounded-2xl bg-emerald-500/20 text-emerald-400 mb-3 border border-emerald-400/40 shadow-[0_0_20px_rgba(16,185,129,0.4)]">
+            <Sparkles className="w-8 h-8 animate-spin" style={{ animationDuration: '8s' }} />
           </div>
-          <h3 className="text-2xl font-black text-white mb-2">
-            {isArabic ? 'تم تأمين العقدة بنجاح!' : 'NODE SECURED! THREAT NEUTRALIZED'}
+          <h3 className="text-2xl font-black text-white mb-2 tracking-wide drop-shadow-[0_0_15px_rgba(52,211,153,0.6)]">
+            {isArabic ? 'تم تأمين العقدة وتطهير الخادم!' : 'NODE SECURED! SYSTEM PURGED!'}
           </h3>
-          <p className="text-xs text-slate-300 mb-5">
+          <p className="text-xs text-slate-300 mb-6 leading-relaxed font-semibold">
             {isArabic
-              ? 'تنسيق ممتاز بين لاعب الواقع الافتراضي وفريق الطاولة الورقي. استمروا في صد الهجمات القادمة.'
-              : 'Flawless asymmetric coordination between the VR operative and incident manual team.'}
+              ? 'تنسيق ممتاز وسريع بين تحليل الأسئلة وصد هجمات الحزم الخبيثة بنجاح.'
+              : 'Flawless execution! All curriculum threat waves destroyed and core integrity preserved.'}
           </p>
-          <div className="flex items-center justify-center gap-3">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5">
             <button
-              onClick={onRestartScenario}
-              className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider transition-all cursor-pointer"
+              onClick={onNextScenarioHub}
+              className="w-full sm:w-auto px-7 py-3 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-[0_0_25px_rgba(245,158,11,0.6)] flex items-center justify-center gap-2 transform hover:scale-105 active:scale-95"
             >
-              {isArabic ? 'السيناريو التالي' : 'Next Scenario'}
+              <span>{isArabic ? 'السيناريو التالي' : 'Next Scenario'}</span>
+              <ArrowRight className="w-4 h-4" />
             </button>
             <button
               onClick={onReturnToMenu}
-              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono transition-all cursor-pointer"
+              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-[#030d22] hover:bg-[#061536] border border-cyan-500/40 text-cyan-200 text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"
             >
-              {isArabic ? 'القائمة الرئيسية' : 'Main Menu'}
+              <Home className="w-4 h-4 text-cyan-400" />
+              <span>{isArabic ? 'القائمة الرئيسية' : 'Main Menu'}</span>
             </button>
           </div>
         </div>
       )}
 
+      {/* Defeat Overlay Modal */}
       {gameStatus === 'gameover' && (
-        <div className="pointer-events-auto my-auto mx-auto p-6 max-w-md w-full rounded-2xl bg-slate-950/95 border-2 border-red-500 text-center shadow-[0_0_50px_rgba(239,68,68,0.3)] animate-in fade-in zoom-in duration-200">
-          <div className="inline-flex p-3 rounded-full bg-red-500/20 text-red-400 mb-3">
-            <AlertOctagon className="w-8 h-8" />
+        <div className="pointer-events-auto my-auto mx-auto p-7 max-w-md w-full rounded-2xl bg-[#020611]/95 border-2 border-red-500 text-center shadow-[0_0_60px_rgba(255,0,85,0.6)] backdrop-blur-2xl animate-in fade-in zoom-in duration-200 relative z-30">
+          <div className="inline-flex p-3.5 rounded-2xl bg-red-500/20 text-red-400 mb-3 border border-red-500/50 shadow-[0_0_20px_rgba(255,0,85,0.5)]">
+            <AlertOctagon className="w-8 h-8 animate-bounce" />
           </div>
-          <h3 className="text-2xl font-black text-white mb-2">
-            {isArabic ? 'تم اختراق العقدة! فشل المهمة' : 'CRITICAL BREACH! MISSION FAILED'}
+          <h3 className="text-2xl font-black text-white mb-2 tracking-wide drop-shadow-[0_0_15px_rgba(255,0,85,0.6)]">
+            {isArabic ? 'تم اختراق العقدة! فشلت المهمة' : 'CRITICAL BREACH! MISSION FAILED'}
           </h3>
-          <p className="text-xs text-slate-300 mb-5">
+          <p className="text-xs text-slate-300 mb-6 leading-relaxed font-semibold">
             {isArabic
-              ? 'نفد الوقت أو تدمرت دروع الخادم. استشر الدليل الورقي مجدداً وحاول تنسيق الأوامر بشكل أسرع.'
-              : 'The packet storm overwhelmed the node before countermeasures could be deployed.'}
+              ? 'تدمرت دروع العقدة جراء اصطدام الحزم الخبيثة. ادرس الدليل الورقي وحاول مجدداً!'
+              : 'The malware swarm overwhelmed the central protected core node before defenses held.'}
           </p>
-          <div className="flex items-center justify-center gap-3">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5">
             <button
               onClick={onRestartScenario}
-              className="px-5 py-2.5 rounded-xl bg-red-500 hover:bg-red-400 text-white font-black text-xs uppercase tracking-wider transition-all cursor-pointer"
+              className="w-full sm:w-auto px-7 py-3 rounded-xl bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-[0_0_25px_rgba(255,0,85,0.7)] flex items-center justify-center gap-2 transform hover:scale-105 active:scale-95"
             >
-              {isArabic ? 'إعادة المحاولة' : 'Retry Incident'}
+              <RotateCcw className="w-4 h-4" />
+              <span>{isArabic ? 'إعادة المحاولة' : 'Retry Incident'}</span>
             </button>
             <button
               onClick={onReturnToMenu}
-              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono transition-all cursor-pointer"
+              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-[#030d22] hover:bg-[#061536] border border-slate-700 text-slate-300 text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"
             >
-              {isArabic ? 'القائمة الرئيسية' : 'Main Menu'}
+              <Home className="w-4 h-4 text-cyan-400" />
+              <span>{isArabic ? 'القائمة الرئيسية' : 'Main Menu'}</span>
             </button>
           </div>
         </div>
       )}
 
-      {/* Bottom Dock (Following Three.js guidelines: collapsible, centered, zero obstruction) */}
-      <div className="pointer-events-auto w-full max-w-3xl mx-auto flex flex-col items-center">
+      {/* Bottom Dock */}
+      <div className="pointer-events-auto w-full max-w-3xl mx-auto flex flex-col items-center relative z-10">
         {/* Collapse toggle */}
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="mb-1 px-3 py-0.5 rounded-t-lg bg-slate-900/80 border-t border-x border-slate-800 text-[11px] font-mono text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer"
+          className="mb-1 px-3.5 py-0.5 rounded-t-xl bg-[#020611]/90 border-t border-x border-cyan-500/40 text-[11px] font-black text-cyan-300 hover:text-white flex items-center gap-1.5 cursor-pointer shadow-md backdrop-blur-md"
         >
           {isCollapsed ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-          <span>{isCollapsed ? (isArabic ? 'إظهار اللوحة' : 'Show Tactical Dock') : (isArabic ? 'إخفاء اللوحة' : 'Hide Dock')}</span>
+          <span>{isCollapsed ? (isArabic ? 'إظهار لوحة التحكم' : 'Show Dock') : (isArabic ? 'إخفاء لوحة التحكم' : 'Hide Dock')}</span>
         </button>
 
         {!isCollapsed && (
-          <div className="w-full p-3 px-4 rounded-2xl bg-slate-950/85 border border-cyan-500/30 backdrop-blur-sm shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-            {/* Table Team Shout Intercom */}
+          <div className="w-full p-3 px-4.5 rounded-2xl bg-[#020611]/85 border border-cyan-500/40 backdrop-blur-xl shadow-[0_0_25px_rgba(0,240,255,0.15)] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            {/* Table Team Intercom */}
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <button
                 onClick={onTriggerTeamShout}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/50 font-mono font-bold shrink-0 transition-all cursor-pointer"
-                title="Simulate Table Team Voice Shout"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-400/50 font-black shrink-0 transition-all cursor-pointer shadow-sm"
               >
-                <Radio className="w-3.5 h-3.5" />
-                <span>{isArabic ? 'نداء فريق الطاولة (صوت)' : 'Table Team Comms'}</span>
+                <Radio className="w-3.5 h-3.5 text-cyan-400" />
+                <span>{isArabic ? 'صوت فريق الطاولة' : 'Table Comms'}</span>
               </button>
 
               {lastTeamShout && (
-                <div className="px-3 py-1 rounded-lg bg-slate-900 border border-slate-800 text-amber-300 font-mono text-[11px] truncate max-w-xs">
+                <div className="px-3 py-1 rounded-xl bg-[#030d22] border border-cyan-500/30 text-amber-300 font-bold text-[11px] truncate max-w-xs shadow-inner">
                   "{lastTeamShout}"
                 </div>
               )}
             </div>
 
-            {/* Desktop Controls Hint (if not in VR) */}
+            {/* Desktop hint - changes dynamically per Phase */}
             {!vrActive && (
-              <div className="text-[11px] font-mono text-slate-400 hidden md:block">
-                {isArabic
-                  ? 'التحكم: انقر بالماوس للتصويب وإطلاق الليزر على الأهداف والحزم الخبيثة'
-                  : 'Controls: Click to shoot laser blasters at target nodes & threat packets'}
+              <div className="text-[11px] text-slate-300 hidden md:block font-bold">
+                {combatPhase === 'decoding'
+                  ? isArabic
+                    ? '🎯 أطلق الليزر على شارة الإجابة الصحيحة لفتح درع الخادم'
+                    : '🎯 Click mouse to shoot laser at the correct target badge'
+                  : isArabic
+                    ? '⚡ احمِ قلب الخادم! أطلق الليزر على الحزم الخبيثة المهاجمة فوراً!'
+                    : '⚡ DEFEND CORE! Intercept and blast incoming malware packets!'}
               </div>
             )}
 
-            {/* Actions & Difficulty Switcher */}
+            {/* Controls */}
             <div className="flex items-center gap-2">
               {onChangeDifficulty && (
-                <div className="flex items-center p-0.5 rounded-lg bg-slate-900 border border-slate-800">
+                <div className="flex items-center p-0.5 rounded-xl bg-[#030d22] border border-cyan-500/30">
                   {(['easy', 'medium', 'hard'] as const).map((lvl) => (
                     <button
                       key={lvl}
                       onClick={() => onChangeDifficulty(lvl)}
-                      className={`px-2 py-1 rounded text-[10px] font-mono font-bold uppercase transition-all cursor-pointer ${
+                      className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase transition-all cursor-pointer ${
                         difficulty === lvl
-                          ? 'bg-cyan-500 text-slate-950 font-black shadow-sm'
+                          ? 'bg-gradient-to-r from-cyan-400 to-cyan-500 text-slate-950 shadow-[0_0_8px_rgba(0,240,255,0.7)]'
                           : 'text-slate-400 hover:text-white'
                       }`}
                     >
@@ -316,8 +425,7 @@ export const HUDOverlay: React.FC<HUDOverlayProps> = ({
               {onOpenTraining && (
                 <button
                   onClick={onOpenTraining}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-mono transition-all cursor-pointer"
-                  title="Training Simulation"
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 text-xs font-black transition-all cursor-pointer"
                 >
                   <GraduationCap className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">{isArabic ? 'التدريب' : 'Training'}</span>
@@ -325,14 +433,14 @@ export const HUDOverlay: React.FC<HUDOverlayProps> = ({
               )}
               <button
                 onClick={onRestartScenario}
-                className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 transition-all cursor-pointer"
-                title="Restart Round"
+                className="p-1.5 rounded-xl bg-[#030d22] hover:bg-[#061536] border border-slate-700 text-slate-300 hover:text-cyan-300 transition-all cursor-pointer"
+                title="Restart"
               >
                 <RotateCcw className="w-4 h-4" />
               </button>
               <button
                 onClick={onReturnToMenu}
-                className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-mono transition-all cursor-pointer"
+                className="px-3 py-1.5 rounded-xl bg-[#030d22] hover:bg-[#061536] border border-slate-700 text-slate-300 hover:text-cyan-300 text-xs font-black transition-all cursor-pointer"
               >
                 {isArabic ? 'القائمة' : 'Menu'}
               </button>

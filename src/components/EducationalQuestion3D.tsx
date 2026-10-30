@@ -205,9 +205,9 @@ function useOptionBadgeTexture(
       // 2. Glowing Borders & Highlight
       const borderColor =
         isCorrect === true
-          ? '#10b981'
+          ? '#00FF66'
           : isCorrect === false
-          ? '#ef4444'
+          ? '#FF0055'
           : isLocked
           ? '#f59e0b'
           : '#00f0ff';
@@ -369,22 +369,22 @@ export const EducationalQuestion3D: React.FC<EducationalQuestion3DProps> = ({
   const isArabic = language === 'ar';
   const boardTexture = useQuestionBoardTexture(question, questionIndex, totalQuestions, isArabic);
 
-  // Distribute 3 solution option cards along X: [-1.55, 0, 1.55]
+  // Distribute 3 solution option cards along X: [-1.8, 0, 1.8] at Y: 1.0, Z: -4.0
   const optionPositions: [number, number, number][] = useMemo(() => {
     const count = question.options.length;
     if (count === 3) {
       return [
-        [-1.55, 1.25, -3.5],
-        [0.0, 1.25, -3.5],
-        [1.55, 1.25, -3.5],
+        [-1.8, 1.0, -4.0],
+        [0.0, 1.0, -4.0],
+        [1.8, 1.0, -4.0],
       ];
     }
     // Fallback for 4 options
     return [
-      [-2.1, 1.25, -3.5],
-      [-0.7, 1.25, -3.5],
-      [0.7, 1.25, -3.5],
-      [2.1, 1.25, -3.5],
+      [-2.1, 1.0, -4.0],
+      [-0.7, 1.0, -4.0],
+      [0.7, 1.0, -4.0],
+      [2.1, 1.0, -4.0],
     ];
   }, [question.options.length]);
 

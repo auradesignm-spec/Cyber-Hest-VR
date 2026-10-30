@@ -118,16 +118,23 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
       },
     }));
 
-    // Magnetic Aim Assist Computation helper (5 degrees = ~0.087 rad)
+    // Magnetic Aim Assist Computation helper (Scales dynamically with target radius)
     const computeMagneticAim = (origin: THREE.Vector3, rawDirection: THREE.Vector3) => {
       let bestTarget: TargetNodeInfo | null = null;
-      let closestAngle = 5.0 * (Math.PI / 180); // 5 degrees max threshold
+      let closestAngle = 0.28; // ~16 degrees max initial threshold
       const targetVec = new THREE.Vector3();
 
       activeTargets.forEach((target) => {
-        targetVec.set(...target.position).sub(origin).normalize();
-        const angle = rawDirection.angleTo(targetVec);
-        if (angle < closestAngle) {
+        const toTarget = targetVec.set(...target.position).sub(origin);
+        const dist = toTarget.length();
+        const normDir = toTarget.normalize();
+        const angle = rawDirection.angleTo(normDir);
+
+        // Dynamic angular tolerance based on target physical radius
+        const targetRadius = target.radius || 0.65;
+        const maxAngle = Math.max(0.12, Math.atan2(targetRadius, Math.max(1.0, dist)));
+
+        if (angle < maxAngle && angle < closestAngle) {
           closestAngle = angle;
           bestTarget = target;
         }
@@ -135,8 +142,8 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
 
       if (bestTarget) {
         targetVec.set(...(bestTarget as TargetNodeInfo).position).sub(origin).normalize();
-        // Magnetic snap: blend raw direction towards the locked target
-        const snappedDirection = rawDirection.clone().lerp(targetVec, 0.45).normalize();
+        // Magnetic snap: blend raw direction smoothly towards the locked target
+        const snappedDirection = rawDirection.clone().lerp(targetVec, 0.55).normalize();
         return { snappedDirection, targetId: (bestTarget as TargetNodeInfo).id };
       }
 

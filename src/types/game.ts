@@ -9,6 +9,8 @@ export type ScenarioId = 'scenario-1' | 'scenario-2' | 'scenario-3';
 
 export type DifficultyLevel = 'easy' | 'medium' | 'hard';
 
+export type CombatPhase = 'decoding' | 'defense';
+
 export type CinematicStep =
   | 'splash'
   | 'warp_to_scenario'
@@ -147,3 +149,4 @@ export interface DataPacketInstance {
   targetZ: number;
   active: boolean;
 }
+

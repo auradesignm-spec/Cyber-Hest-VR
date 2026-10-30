@@ -655,6 +655,155 @@ export class SpatialAudioEngine {
   }
 
   /**
+   * 3D Spatial Alarm Siren with Low-Frequency Synthesizer Growl
+   * (Dual-pitch emergency klaxon + 42Hz sawtooth sub-bass growl with sweeping filter)
+   */
+  private alarmOsc: OscillatorNode | null = null;
+  private alarmGrowlOsc: OscillatorNode | null = null;
+  private alarmGain: GainNode | null = null;
+  private alarmGrowlGain: GainNode | null = null;
+  private alarmRunning = false;
+
+  public startAlarmSiren() {
+    if (this.alarmRunning || this.muted) return;
+    const ctx = this.initContext();
+    if (!ctx || !this.masterGain) return;
+
+    try {
+      const now = ctx.currentTime;
+
+      // 1. High-frequency Doppler klaxon siren
+      this.alarmGain = ctx.createGain();
+      this.alarmGain.gain.setValueAtTime(0.22, now);
+      this.alarmGain.connect(this.masterGain);
+
+      this.alarmOsc = ctx.createOscillator();
+      this.alarmOsc.type = 'sawtooth';
+      this.alarmOsc.frequency.setValueAtTime(720, now);
+
+      // Rapid Doppler frequency modulation
+      for (let i = 0; i < 80; i++) {
+        const time = now + i * 0.32;
+        this.alarmOsc.frequency.linearRampToValueAtTime(i % 2 === 0 ? 980 : 520, time + 0.28);
+      }
+
+      this.alarmOsc.connect(this.alarmGain);
+      this.alarmOsc.start(now);
+
+      // 2. Low-frequency 42Hz Synthesizer Growl with filter sweep
+      this.alarmGrowlGain = ctx.createGain();
+      this.alarmGrowlGain.gain.setValueAtTime(0.35, now);
+      this.alarmGrowlGain.connect(this.masterGain);
+
+      this.alarmGrowlOsc = ctx.createOscillator();
+      this.alarmGrowlOsc.type = 'sawtooth';
+      this.alarmGrowlOsc.frequency.setValueAtTime(42, now);
+
+      const growlFilter = ctx.createBiquadFilter();
+      growlFilter.type = 'lowpass';
+      growlFilter.frequency.setValueAtTime(120, now);
+
+      // Sweeping cutoff for growl throbbing
+      for (let j = 0; j < 80; j++) {
+        const tStep = now + j * 0.64;
+        growlFilter.frequency.linearRampToValueAtTime(j % 2 === 0 ? 280 : 80, tStep + 0.5);
+      }
+
+      this.alarmGrowlOsc.connect(growlFilter);
+      growlFilter.connect(this.alarmGrowlGain);
+      this.alarmGrowlOsc.start(now);
+
+      this.alarmRunning = true;
+    } catch {
+      // safety
+    }
+  }
+
+  public stopAlarmSiren() {
+    if (!this.alarmRunning) return;
+    try {
+      this.alarmOsc?.stop();
+      this.alarmOsc?.disconnect();
+      this.alarmGain?.disconnect();
+
+      this.alarmGrowlOsc?.stop();
+      this.alarmGrowlOsc?.disconnect();
+      this.alarmGrowlGain?.disconnect();
+    } catch {
+      // safety
+    }
+    this.alarmRunning = false;
+  }
+
+  /**
+   * Overclock Powerup Chime
+   */
+  public playPowerupChime() {
+    if (this.muted) return;
+    const ctx = this.initContext();
+    if (!ctx || !this.masterGain) return;
+
+    try {
+      const now = ctx.currentTime;
+      [440, 554.37, 659.25, 880, 1108.73, 1318.5].forEach((freq, idx) => {
+        if (!ctx || !this.masterGain) return;
+        const noteTime = now + idx * 0.05;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq, noteTime);
+
+        gain.gain.setValueAtTime(0.2, noteTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, noteTime + 0.4);
+
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+
+        osc.start(noteTime);
+        osc.stop(noteTime + 0.42);
+      });
+    } catch {
+      // safety
+    }
+  }
+
+  /**
+   * Victory Fanfare Arpeggio
+   */
+  public playVictoryFanfare() {
+    if (this.muted) return;
+    const ctx = this.initContext();
+    if (!ctx || !this.masterGain) return;
+
+    try {
+      const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98];
+      const now = ctx.currentTime;
+
+      notes.forEach((freq, idx) => {
+        if (!ctx || !this.masterGain) return;
+        const noteTime = now + idx * 0.09;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, noteTime);
+
+        gain.gain.setValueAtTime(0.3, noteTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, noteTime + 0.6);
+
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+
+        osc.start(noteTime);
+        osc.stop(noteTime + 0.65);
+      });
+    } catch {
+      // safety
+    }
+  }
+
+  /**
    * Warp Deceleration & Arrival Thud
    */
   public playWarpDecelerate() {
@@ -686,3 +835,4 @@ export class SpatialAudioEngine {
 }
 
 export const spatialAudio = new SpatialAudioEngine();
+

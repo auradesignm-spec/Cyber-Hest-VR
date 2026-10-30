@@ -18,11 +18,11 @@ interface SplashHero3DProps {
 }
 
 /**
- * 3D Main Splash Screen
- * - Cyberpunk Glowing Typography with Glitch Offsets
- * - Large Glowing 3D "INITIALIZE DEFENSE" CTA Button
- * - Secondary "Incident Rulebook" 3D Button
- * - Floating Language Selector [ العربية | English ] with RTL Cairo support
+ * 3D Main Splash Screen - High Contrast & Crystal Clear Readability
+ * - Solid dark obsidian backing panels (#020612)
+ * - Ultra-high contrast pure white typography (#ffffff) with sharp outlines
+ * - Vibrant neon accent borders (Cyan, Emerald, Amber, Indigo)
+ * - 100% legible text without washed-out emissive bleeding
  * - Desktop hover / click and VR Laser Raycast Target compatibility
  */
 export const SplashHero3D: React.FC<SplashHero3DProps> = ({
@@ -38,18 +38,18 @@ export const SplashHero3D: React.FC<SplashHero3DProps> = ({
   const titleMeshRef = useRef<THREE.Mesh>(null);
   const ctaMeshRef = useRef<THREE.Mesh>(null);
 
-  // 1. Procedural Cyberpunk Glitch Typography Canvas Texture
+  // 1. Procedural Main Title Card Canvas Texture (Razor-Sharp High Contrast)
   const titleTexture = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 1536;
     canvas.height = 512;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      // Solid dark navy backing
-      ctx.fillStyle = '#020813';
+      // Solid pitch black / dark obsidian backing
+      ctx.fillStyle = '#020612';
       ctx.fillRect(0, 0, 1536, 512);
 
-      // Tech grid lines
+      // Subtle cyber grid
       ctx.strokeStyle = 'rgba(0, 240, 255, 0.08)';
       ctx.lineWidth = 1;
       for (let x = 32; x < 1536; x += 32) {
@@ -59,14 +59,14 @@ export const SplashHero3D: React.FC<SplashHero3DProps> = ({
         ctx.stroke();
       }
 
-      // Outer glowing frame
+      // Outer vibrant neon border
       ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 6;
       ctx.strokeRect(16, 16, 1504, 480);
 
-      // Corner brackets
+      // Neon corner brackets
       ctx.fillStyle = '#00f0ff';
-      const bw = 32;
+      const bw = 40;
       const bh = 8;
       ctx.fillRect(16, 16, bw, bh);
       ctx.fillRect(16, 16, bh, bw);
@@ -79,59 +79,53 @@ export const SplashHero3D: React.FC<SplashHero3DProps> = ({
 
       const fontFamily = isArabic ? '"Cairo", sans-serif' : '"JetBrains Mono", monospace';
 
-      // Sub-kicker
+      // Kicker Header
       ctx.font = `bold 24px ${fontFamily}`;
       ctx.fillStyle = '#10b981';
       ctx.textAlign = 'center';
       const kickerText = isArabic
-        ? 'نظام الدفاع السيبراني التفاعلي // الإصدار 3.0 WebXR'
-        : 'ASYMMETRIC CYBER DEFENSE ENVIRONMENT // WEBXR ACTIVE';
-      ctx.fillText(kickerText, 768, 80);
+        ? '◄ نظام الدفاع السيبراني التفاعلي // الإصدار 3.0 WebXR ►'
+        : '◄ ASYMMETRIC CYBER DEFENSE ENVIRONMENT // WEBXR ACTIVE ►';
+      ctx.fillText(kickerText, 768, 76);
 
-      // Primary Cyberpunk Glowing Title (Chromatic Glitch Double Pass)
+      // Primary Title: Crisp Pure White with subtle shadow for extreme contrast
       const titleText = isArabic ? 'السرقة السيبرانية: حامي العقد' : 'CYBER HEIST: NODE DEFENDER';
-      ctx.font = `900 ${isArabic ? '64px' : '72px'} ${fontFamily}`;
+      ctx.font = `900 ${isArabic ? '66px' : '72px'} ${fontFamily}`;
 
-      // Red/Pink Glitch Shadow Pass
-      ctx.fillStyle = '#ec4899';
-      ctx.fillText(titleText, 765, 185);
-
-      // Cyan Glitch Pass
-      ctx.fillStyle = '#00f0ff';
-      ctx.fillText(titleText, 771, 183);
-
-      // Primary White Core
+      ctx.shadowColor = '#00f0ff';
+      ctx.shadowBlur = 12;
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(titleText, 768, 184);
+      ctx.fillText(titleText, 768, 175);
+      ctx.shadowBlur = 0; // reset shadow
 
       // Sub-description
-      ctx.font = `normal 26px ${fontFamily}`;
-      ctx.fillStyle = '#94a3b8';
+      ctx.font = `bold 26px ${fontFamily}`;
+      ctx.fillStyle = '#cbd5e1';
       const descText = isArabic
-        ? 'محاكاة تدريبية ثلاثية الأبعاد لفرق الاستجابة للحوادث الأمنية والواقع الافتراضي'
-        : 'Collaborative Incident Response & Port Security Simulation for Meta Quest 3 & Desktop';
-      ctx.fillText(descText, 768, 255);
+        ? 'محاكاة تدريبية احترافية ثلاثية الأبعاد لفرق الأمن السيبراني والواقع الافتراضي'
+        : 'Professional WebXR Incident Response & Cyber Security Simulation';
+      ctx.fillText(descText, 768, 252);
 
-      // Security Badges Line
-      ctx.font = `bold 20px ${fontFamily}`;
-      ctx.fillStyle = '#f59e0b';
+      // Security Badges Line (High Contrast Amber Gold)
+      ctx.font = `900 22px ${fontFamily}`;
+      ctx.fillStyle = '#fbbf24';
       const badgeText = isArabic
-        ? '✦ وضع اللعب بالليزر  ·  ✦ دعم نظارات الواقع الافتراضي  ·  ✦ تحكم كامل باللغة العربية'
-        : '✦ WEAPONIZED LASER PROTOCOLS  ·  ✦ META QUEST 3 OPTIMIZED  ·  ✦ 3-TIER DIFFICULTY';
-      ctx.fillText(badgeText, 768, 320);
+        ? '✦ وضع التصويب والليزر  ·  ✦ دعم الواقع الافتراضي Quest 3  ·  ✦ واجهة عربية كاملة'
+        : '✦ WEAPONIZED LASER PROTOCOLS  ·  ✦ META QUEST 3 OPTIMIZED  ·  ✦ FULL ARABIC / ENGLISH';
+      ctx.fillText(badgeText, 768, 318);
 
-      // Status Bar
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(40, 370, 1456, 90);
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.3)';
+      // System Status Box
+      ctx.fillStyle = '#090e1f';
+      ctx.fillRect(48, 370, 1440, 88);
+      ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 2;
-      ctx.strokeRect(40, 370, 1456, 90);
+      ctx.strokeRect(48, 370, 1440, 88);
 
-      ctx.font = `bold 22px ${fontFamily}`;
+      ctx.font = `900 24px ${fontFamily}`;
       ctx.fillStyle = '#38bdf8';
       const specText = isArabic
-        ? 'حالة النظام: الاتصال نشط  ·  بوابة الزمن الافتراضية: جاهزة للقفز'
-        : 'SYSTEM STATUS: OPERATIONAL  ·  TIME TUNNEL WARP GATE: ONLINE';
+        ? 'حالة النظام: الاتصال نشط  ·  بوابة الزمن الافتراضية: جاهزة للقفز الفوري'
+        : 'SYSTEM STATUS: OPERATIONAL  ·  QUANTUM TIME TUNNEL: ONLINE';
       ctx.fillText(specText, 768, 424);
     }
     const texture = new THREE.CanvasTexture(canvas);
@@ -139,111 +133,107 @@ export const SplashHero3D: React.FC<SplashHero3DProps> = ({
     return texture;
   }, [isArabic]);
 
-  // 2. Procedural Primary CTA "INITIALIZE DEFENSE" Texture
+  // 2. Primary CTA "INITIALIZE DEFENSE" Texture (High Contrast Cyan-Navy)
   const ctaTexture = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 640;
     canvas.height = 160;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.fillStyle = '#021827';
+      // Solid dark navy background
+      ctx.fillStyle = '#041628';
       ctx.fillRect(0, 0, 640, 160);
 
-      // Neon Frame
+      // Thick Neon Frame
       ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 6;
       ctx.strokeRect(8, 8, 624, 144);
 
-      // Fill glow
-      ctx.fillStyle = 'rgba(0, 240, 255, 0.12)';
-      ctx.fillRect(12, 12, 616, 136);
-
       // Corner Accents
       ctx.fillStyle = '#00f0ff';
-      ctx.fillRect(8, 8, 24, 6);
-      ctx.fillRect(8, 8, 6, 24);
-      ctx.fillRect(608, 8, 24, 6);
-      ctx.fillRect(626, 8, 6, 24);
-      ctx.fillRect(8, 146, 24, 6);
-      ctx.fillRect(8, 130, 6, 24);
-      ctx.fillRect(608, 146, 24, 6);
-      ctx.fillRect(626, 130, 6, 24);
+      ctx.fillRect(8, 8, 30, 8);
+      ctx.fillRect(8, 8, 8, 30);
+      ctx.fillRect(602, 8, 30, 8);
+      ctx.fillRect(624, 8, 8, 30);
+      ctx.fillRect(8, 144, 30, 8);
+      ctx.fillRect(8, 122, 8, 30);
+      ctx.fillRect(602, 144, 30, 8);
+      ctx.fillRect(624, 122, 8, 30);
 
       const fontFamily = isArabic ? '"Cairo", sans-serif' : '"JetBrains Mono", monospace';
       ctx.font = `900 ${isArabic ? '36px' : '32px'} ${fontFamily}`;
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
       const ctaLabel = isArabic ? '⚡ بدء الدفاع والقفز بالزمن' : '⚡ INITIALIZE DEFENSE';
-      ctx.fillText(ctaLabel, 320, 78);
+      ctx.fillText(ctaLabel, 320, 75);
 
       ctx.font = `bold 18px ${fontFamily}`;
       ctx.fillStyle = '#38bdf8';
       const subLabel = isArabic ? 'انقر أو صوّب الليزر للدخول' : 'CLICK OR SHOOT TO WARP';
-      ctx.fillText(subLabel, 320, 118);
+      ctx.fillText(subLabel, 320, 120);
     }
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     return texture;
   }, [isArabic]);
 
-  // 3. Procedural Secondary "Incident Rulebook" Texture
+  // 3. Secondary "Incident Rulebook" Texture (High Contrast Amber-Navy)
   const manualTexture = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 480;
     canvas.height = 140;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.fillStyle = '#061325';
+      ctx.fillStyle = '#181105';
       ctx.fillRect(0, 0, 480, 140);
 
       ctx.strokeStyle = '#f59e0b';
-      ctx.lineWidth = 4;
+      ctx.lineWidth = 5;
       ctx.strokeRect(6, 6, 468, 128);
 
       const fontFamily = isArabic ? '"Cairo", sans-serif' : '"JetBrains Mono", monospace';
-      ctx.font = `bold ${isArabic ? '28px' : '24px'} ${fontFamily}`;
-      ctx.fillStyle = '#fde68a';
+      ctx.font = `900 ${isArabic ? '28px' : '24px'} ${fontFamily}`;
+      ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
       const label = isArabic ? '📖 دليل الحوادث السيبرانية' : '📖 INCIDENT RULEBOOK';
-      ctx.fillText(label, 240, 68);
+      ctx.fillText(label, 240, 65);
 
-      ctx.font = `normal 16px ${fontFamily}`;
-      ctx.fillStyle = '#94a3b8';
+      ctx.font = `bold 18px ${fontFamily}`;
+      ctx.fillStyle = '#fbbf24';
       const sub = isArabic ? 'دليل فريق الطاولة الورقي' : 'PHYSICAL TABLE MANUAL';
-      ctx.fillText(sub, 240, 102);
+      ctx.fillText(sub, 240, 105);
     }
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     return texture;
   }, [isArabic]);
 
-  // 4. Procedural Language Switcher [ العربية | English ] Texture
+  // 4. Language Switcher [ العربية | English ] Texture (High Contrast Emerald-Navy)
   const langTexture = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 440;
     canvas.height = 120;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.fillStyle = '#051224';
+      ctx.fillStyle = '#041c17';
       ctx.fillRect(0, 0, 440, 120);
 
       ctx.strokeStyle = '#10b981';
-      ctx.lineWidth = 4;
+      ctx.lineWidth = 5;
       ctx.strokeRect(6, 6, 428, 108);
 
       const fontFamily = '"Cairo", "JetBrains Mono", sans-serif';
-      ctx.font = `bold 24px ${fontFamily}`;
+      ctx.font = `900 24px ${fontFamily}`;
       ctx.textAlign = 'center';
 
-      // Active language highlight
       if (isArabic) {
         ctx.fillStyle = '#10b981';
-        ctx.fillText('● العربية (AR)', 140, 68);
-        ctx.fillStyle = '#64748b';
+        ctx.fillText('● العربية (AR)', 130, 68);
+        ctx.fillStyle = '#94a3b8';
         ctx.fillText('English (EN)', 300, 68);
       } else {
-        ctx.fillStyle = '#64748b';
-        ctx.fillText('العربية (AR)', 140, 68);
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText('العربية (AR)', 130, 68);
         ctx.fillStyle = '#10b981';
         ctx.fillText('● English (EN)', 300, 68);
       }
@@ -253,7 +243,38 @@ export const SplashHero3D: React.FC<SplashHero3DProps> = ({
     return texture;
   }, [isArabic]);
 
-  useFrame((state, delta) => {
+  // 5. Training Simulation Button Texture (High Contrast Indigo-Navy)
+  const trainingTexture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 640;
+    canvas.height = 140;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#090e26';
+      ctx.fillRect(0, 0, 640, 140);
+
+      ctx.strokeStyle = '#6366f1';
+      ctx.lineWidth = 5;
+      ctx.strokeRect(6, 6, 628, 128);
+
+      const fontFamily = isArabic ? '"Cairo", sans-serif' : '"JetBrains Mono", monospace';
+      ctx.font = `900 ${isArabic ? '28px' : '24px'} ${fontFamily}`;
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      const label = isArabic ? '🎓 محاكاة التدريب ومعايرة الليزر' : '🎓 TRAINING SIMULATION & CALIBRATION';
+      ctx.fillText(label, 320, 65);
+
+      ctx.font = `bold 18px ${fontFamily}`;
+      ctx.fillStyle = '#a5b4fc';
+      const sub = isArabic ? 'أطلق للبدء الفوري بالتدريب' : 'SHOOT TO START CALIBRATION';
+      ctx.fillText(sub, 320, 105);
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  }, [isArabic]);
+
+  useFrame((state) => {
     const time = state.clock.getElapsedTime();
 
     // Floating breathing motion
@@ -263,7 +284,7 @@ export const SplashHero3D: React.FC<SplashHero3DProps> = ({
 
     // CTA Pulse scaling
     if (ctaMeshRef.current) {
-      const isTargeted = lockedTargetId === 'cta_initialize' || hoveredButton === 'initialize';
+      const isTargeted = lockedTargetId === 'init_defense' || hoveredButton === 'initialize';
       const targetScale = isTargeted ? 1.15 : 1.0 + Math.sin(time * 3.5) * 0.02;
       ctaMeshRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, 1), 0.15);
     }
@@ -272,78 +293,98 @@ export const SplashHero3D: React.FC<SplashHero3DProps> = ({
   return (
     <group position={[0, 0, 0]}>
       {/* 1. Main Title Card (Y: +2.85m, Z: -4.5m) */}
-      <mesh
-        ref={titleMeshRef}
-        position={[0, 2.85, -4.5]}
-      >
+      <mesh ref={titleMeshRef} position={[0, 2.85, -4.5]}>
         <planeGeometry args={[4.2, 1.4]} />
-        <meshStandardMaterial
-          map={titleTexture}
-          roughness={0.2}
-          metalness={0.7}
-          emissive="#00f0ff"
-          emissiveIntensity={0.25}
-        />
+        <meshBasicMaterial map={titleTexture} toneMapped={false} />
       </mesh>
 
       {/* 2. Primary Button: "INITIALIZE DEFENSE" (Y: +1.4m, Z: -3.8m) */}
-      <mesh
-        ref={ctaMeshRef}
-        position={[0, 1.4, -3.8]}
-        onClick={onInitializeDefense}
-        onPointerOver={() => setHoveredButton('initialize')}
-        onPointerOut={() => setHoveredButton(null)}
-      >
-        <planeGeometry args={[2.5, 0.65]} />
-        <meshStandardMaterial
-          map={ctaTexture}
-          roughness={0.1}
-          metalness={0.8}
-          emissive="#00f0ff"
-          emissiveIntensity={hoveredButton === 'initialize' || lockedTargetId === 'cta_initialize' ? 0.9 : 0.4}
-        />
-      </mesh>
+      <group position={[0, 1.4, -3.8]}>
+        <mesh
+          ref={ctaMeshRef}
+          onClick={onInitializeDefense}
+          onPointerOver={() => setHoveredButton('initialize')}
+          onPointerOut={() => setHoveredButton(null)}
+        >
+          <planeGeometry args={[2.5, 0.65]} />
+          <meshBasicMaterial map={ctaTexture} toneMapped={false} />
+        </mesh>
+        {(hoveredButton === 'initialize' || lockedTargetId === 'init_defense') && (
+          <mesh position={[0, 0, 0.01]}>
+            <planeGeometry args={[2.56, 0.71]} />
+            <meshBasicMaterial color="#00f0ff" wireframe toneMapped={false} />
+          </mesh>
+        )}
+      </group>
 
-      {/* 3. Secondary Button: "Incident Rulebook" (Y: +0.85m, X: -1.3m, Z: -3.8m) */}
-      <mesh
+      {/* 3. Secondary Button: "Incident Rulebook" (Y: +0.85m, X: -1.25m, Z: -3.8m) */}
+      <group
         position={[-1.25, 0.85, -3.8]}
-        onClick={onOpenManual}
-        onPointerOver={() => setHoveredButton('manual')}
-        onPointerOut={() => setHoveredButton(null)}
-        scale={hoveredButton === 'manual' || lockedTargetId === 'cta_manual' ? 1.12 : 1.0}
+        scale={hoveredButton === 'manual' || lockedTargetId === 'manual' ? [1.12, 1.12, 1] : [1, 1, 1]}
       >
-        <planeGeometry args={[1.8, 0.52]} />
-        <meshStandardMaterial
-          map={manualTexture}
-          roughness={0.2}
-          metalness={0.7}
-          emissive="#f59e0b"
-          emissiveIntensity={hoveredButton === 'manual' || lockedTargetId === 'cta_manual' ? 0.8 : 0.3}
-        />
-      </mesh>
+        <mesh
+          onClick={onOpenManual}
+          onPointerOver={() => setHoveredButton('manual')}
+          onPointerOut={() => setHoveredButton(null)}
+        >
+          <planeGeometry args={[1.8, 0.52]} />
+          <meshBasicMaterial map={manualTexture} toneMapped={false} />
+        </mesh>
+        {(hoveredButton === 'manual' || lockedTargetId === 'manual') && (
+          <mesh position={[0, 0, 0.01]}>
+            <planeGeometry args={[1.86, 0.58]} />
+            <meshBasicMaterial color="#f59e0b" wireframe toneMapped={false} />
+          </mesh>
+        )}
+      </group>
 
-      {/* 4. Language Selector Toggle (Y: +0.85m, X: +1.3m, Z: -3.8m) */}
-      <mesh
+      {/* 4. Language Selector Toggle (Y: +0.85m, X: +1.25m, Z: -3.8m) */}
+      <group
         position={[1.25, 0.85, -3.8]}
-        onClick={onToggleLanguage}
-        onPointerOver={() => setHoveredButton('lang')}
-        onPointerOut={() => setHoveredButton(null)}
-        scale={hoveredButton === 'lang' || lockedTargetId === 'cta_lang' ? 1.12 : 1.0}
+        scale={hoveredButton === 'lang' || lockedTargetId === 'lang_toggle' ? [1.12, 1.12, 1] : [1, 1, 1]}
       >
-        <planeGeometry args={[1.7, 0.52]} />
-        <meshStandardMaterial
-          map={langTexture}
-          roughness={0.2}
-          metalness={0.7}
-          emissive="#10b981"
-          emissiveIntensity={hoveredButton === 'lang' || lockedTargetId === 'cta_lang' ? 0.8 : 0.3}
-        />
-      </mesh>
+        <mesh
+          onClick={onToggleLanguage}
+          onPointerOver={() => setHoveredButton('lang')}
+          onPointerOut={() => setHoveredButton(null)}
+        >
+          <planeGeometry args={[1.7, 0.52]} />
+          <meshBasicMaterial map={langTexture} toneMapped={false} />
+        </mesh>
+        {(hoveredButton === 'lang' || lockedTargetId === 'lang_toggle') && (
+          <mesh position={[0, 0, 0.01]}>
+            <planeGeometry args={[1.76, 0.58]} />
+            <meshBasicMaterial color="#10b981" wireframe toneMapped={false} />
+          </mesh>
+        )}
+      </group>
 
-      {/* Floating Accent Pedestal Lights */}
-      <pointLight position={[0, 1.4, -3.5]} intensity={1.8} color="#00f0ff" distance={5} />
-      <pointLight position={[-1.25, 0.85, -3.5]} intensity={1.2} color="#f59e0b" distance={4} />
-      <pointLight position={[1.25, 0.85, -3.5]} intensity={1.2} color="#10b981" distance={4} />
+      {/* 5. Training Simulation Button (Y: +0.25m, Z: -3.8m) */}
+      <group
+        position={[0, 0.25, -3.8]}
+        scale={hoveredButton === 'training' || lockedTargetId === 'training' ? [1.12, 1.12, 1] : [1, 1, 1]}
+      >
+        <mesh
+          onClick={onStartTraining}
+          onPointerOver={() => setHoveredButton('training')}
+          onPointerOut={() => setHoveredButton(null)}
+        >
+          <planeGeometry args={[2.5, 0.52]} />
+          <meshBasicMaterial map={trainingTexture} toneMapped={false} />
+        </mesh>
+        {(hoveredButton === 'training' || lockedTargetId === 'training') && (
+          <mesh position={[0, 0, 0.01]}>
+            <planeGeometry args={[2.56, 0.58]} />
+            <meshBasicMaterial color="#6366f1" wireframe toneMapped={false} />
+          </mesh>
+        )}
+      </group>
+
+      {/* Subtle Atmospheric Accent Lights (Controlled intensities) */}
+      <pointLight position={[0, 1.4, -3.5]} intensity={1.2} color="#00f0ff" distance={4} />
+      <pointLight position={[-1.25, 0.85, -3.5]} intensity={0.9} color="#f59e0b" distance={3.5} />
+      <pointLight position={[1.25, 0.85, -3.5]} intensity={0.9} color="#10b981" distance={3.5} />
+      <pointLight position={[0, 0.25, -3.5]} intensity={0.9} color="#6366f1" distance={3.5} />
     </group>
   );
 };
