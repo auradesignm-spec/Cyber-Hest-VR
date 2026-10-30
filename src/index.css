@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+body {
+  font-family: 'Cairo', system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+  user-select: none;
+  background-color: #020617;
+}
+
+code, kbd, samp, pre, .font-mono {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+}
+

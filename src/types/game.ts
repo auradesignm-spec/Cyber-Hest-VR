@@ -1,0 +1,93 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+export type Language = 'en' | 'ar';
+
+export type ScenarioId = 'scenario-1' | 'scenario-2' | 'scenario-3';
+
+export type GameStatus = 'start' | 'briefing' | 'playing' | 'victory' | 'gameover';
+
+export interface HexPortMapping {
+  hex: string;
+  port: number;
+  service: string;
+  description: string;
+}
+
+export interface PayloadRule {
+  sequence: [string, string, string]; // e.g. ['red', 'blue', 'green']
+  payloadName: string;
+  threatType: string;
+  countermeasure: string; // e.g. 'AES-256'
+  color: string;
+}
+
+export interface SubnetCoreNode {
+  id: 'ALPHA' | 'BETA' | 'GAMMA';
+  label: string;
+  cidr: string;
+  rangePrefix: string;
+  subnetName: string;
+  color: string;
+}
+
+export interface SubnetRule {
+  prefix: string; // e.g. '192.168.4.'
+  sampleIp: string; // e.g. '192.168.4.50'
+  subnetName: string;
+  cidr: string;
+  targetNodeId: 'ALPHA' | 'BETA' | 'GAMMA';
+}
+
+export interface Scenario1Data {
+  targetHex: string;
+  correctPort: number;
+  serviceName: string;
+  allPortOptions: number[];
+  doorHealth: number; // 0 - 100
+  timeRemaining: number;
+}
+
+export interface Scenario2Data {
+  colorSequence: [string, string, string];
+  payloadName: string;
+  correctShield: string;
+  availableShields: Array<{ id: string; name: string; color: string; shape: string }>;
+  routerHealth: number;
+  timeRemaining: number;
+  cleansed: boolean;
+}
+
+export interface Scenario3Data {
+  attackingIp: string;
+  targetSubnetCidr: string;
+  correctNodeId: 'ALPHA' | 'BETA' | 'GAMMA';
+  nodes: SubnetCoreNode[];
+  systemLoad: number; // 0 - 100
+  timeRemaining: number;
+  neutralized: boolean;
+}
+
+export interface LaserShot {
+  id: string;
+  origin: [number, number, number];
+  direction: [number, number, number];
+  color: string;
+  createdAt: number;
+}
+
+export interface DataPacketInstance {
+  id: number;
+  x: number;
+  y: number;
+  z: number;
+  vx: number;
+  vy: number;
+  vz: number;
+  targetX: number;
+  targetY: number;
+  targetZ: number;
+  active: boolean;
+}
