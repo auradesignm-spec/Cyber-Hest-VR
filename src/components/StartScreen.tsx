@@ -4,14 +4,17 @@
  */
 
 import React, { useState } from 'react';
-import { Language, ScenarioId } from '../types/game';
-import { Shield, BookOpen, Glasses, Monitor, Volume2, VolumeX, Sparkles, AlertTriangle } from 'lucide-react';
+import { Language, ScenarioId, DifficultyLevel } from '../types/game';
+import { Shield, BookOpen, Glasses, Monitor, Volume2, VolumeX, Sparkles, AlertTriangle, GraduationCap, Flame, Gauge, Zap } from 'lucide-react';
 
 interface StartScreenProps {
   language: Language;
   onSelectLanguage: (lang: Language) => void;
+  difficulty: DifficultyLevel;
+  onSelectDifficulty: (d: DifficultyLevel) => void;
   onEnterVR: () => void;
   onPlayDesktop: () => void;
+  onStartTraining: () => void;
   onOpenManual: () => void;
   isMuted: boolean;
   onToggleMute: () => void;
@@ -22,8 +25,11 @@ interface StartScreenProps {
 export const StartScreen: React.FC<StartScreenProps> = ({
   language,
   onSelectLanguage,
+  difficulty,
+  onSelectDifficulty,
   onEnterVR,
   onPlayDesktop,
+  onStartTraining,
   onOpenManual,
   isMuted,
   onToggleMute,
@@ -133,6 +139,77 @@ export const StartScreen: React.FC<StartScreenProps> = ({
           </div>
         </div>
 
+        {/* 3-Tier Educational Difficulty Selector */}
+        <div className="w-full mb-4 p-3.5 rounded-xl bg-slate-900/80 border border-slate-800">
+          <div className="flex items-center justify-between mb-2.5">
+            <span className="text-xs font-mono text-slate-300 font-bold uppercase flex items-center gap-1.5">
+              <Gauge className="w-4 h-4 text-cyan-400" />
+              <span>{isArabic ? 'مستوى الصعوبة والمحتوى التعليمي:' : 'Educational Difficulty Tier:'}</span>
+            </span>
+            <span className="text-[11px] font-mono text-cyan-400">
+              {difficulty === 'easy'
+                ? isArabic ? 'مؤقت 120 ثانية // وتيرة هادئة' : '120s Timer // Relaxed Pace'
+                : difficulty === 'medium'
+                ? isArabic ? 'مؤقت 90 ثانية // وتيرة قياسية' : '90s Timer // Balanced Triage'
+                : isArabic ? 'مؤقت 60 ثانية // وتيرة مكثفة' : '60s Timer // High-Pressure Emergency'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            {[
+              {
+                id: 'easy' as const,
+                titleEn: '1. Easy (Basics)',
+                titleAr: '1. مبتدئ (الأساسيات)',
+                descEn: 'OSI Model, Protocols, Threat Definitions',
+                descAr: 'نموذج OSI، بروتوكولات الويب، وتصنيف التهديدات',
+                color: 'emerald',
+                borderActive: 'border-emerald-400 bg-emerald-950/40 text-emerald-300',
+              },
+              {
+                id: 'medium' as const,
+                titleEn: '2. Medium (Ports)',
+                titleAr: '2. متوسط (المنافذ والتشفير)',
+                descEn: 'Standard Ports, Firewall Rules, AES Ciphers',
+                descAr: 'منافذ الخدمات، قواعد الجدار، وتشفير AES',
+                color: 'cyan',
+                borderActive: 'border-cyan-400 bg-cyan-950/40 text-cyan-300',
+              },
+              {
+                id: 'hard' as const,
+                titleEn: '3. Hard (Subnets)',
+                titleAr: '3. متقدم (الـ Subnets)',
+                descEn: 'Hexadecimal Conversion & CIDR Blackholing',
+                descAr: 'تحويلات Hex السداسية وحسابات نطاقات CIDR',
+                color: 'amber',
+                borderActive: 'border-amber-400 bg-amber-950/40 text-amber-300',
+              },
+            ].map((tier) => {
+              const isSelected = difficulty === tier.id;
+              return (
+                <button
+                  key={tier.id}
+                  onClick={() => onSelectDifficulty(tier.id)}
+                  className={`p-2.5 rounded-lg text-left transition-all cursor-pointer border flex flex-col justify-between ${
+                    isSelected
+                      ? tier.borderActive
+                      : 'border-slate-800 bg-slate-900/50 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                  }`}
+                  dir={isArabic ? 'rtl' : 'ltr'}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-mono font-bold text-xs">{isArabic ? tier.titleAr : tier.titleEn}</span>
+                    {isSelected && <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-900 border border-current">ACTIVE</span>}
+                  </div>
+                  <p className="text-[11px] leading-tight opacity-80 font-sans">
+                    {isArabic ? tier.descAr : tier.descEn}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Scenario Selection */}
         <div className="w-full mb-8 p-3 rounded-xl bg-slate-900/60 border border-slate-800">
           <div className="text-xs font-mono text-slate-400 mb-2">
@@ -161,32 +238,41 @@ export const StartScreen: React.FC<StartScreenProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full flex-wrap">
+          {/* Training Simulation (Recommended for new players) */}
+          <button
+            onClick={onStartTraining}
+            className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-sm tracking-wider uppercase flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(16,185,129,0.35)] transition-all cursor-pointer transform hover:scale-105"
+          >
+            <GraduationCap className="w-5 h-5 text-slate-950" />
+            <span>{isArabic ? 'محاكاة التدريب التفاعلي' : 'Training Simulation'}</span>
+          </button>
+
           {/* Enter VR Button (WebXR Meta Quest 3) */}
           <button
             onClick={onEnterVR}
-            className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-sm tracking-wider uppercase flex items-center justify-center gap-2 shadow-[0_0_30px_rgba(6,182,212,0.4)] transition-all cursor-pointer transform hover:scale-105"
+            className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-sm tracking-wider uppercase flex items-center justify-center gap-2 shadow-[0_0_30px_rgba(6,182,212,0.35)] transition-all cursor-pointer transform hover:scale-105"
           >
             <Glasses className="w-5 h-5" />
-            <span>{isArabic ? 'دخول الواقع الافتراضي (Enter VR)' : 'Enter VR (Quest 3)'}</span>
+            <span>{isArabic ? 'دخول الواقع الافتراضي' : 'Enter VR (Quest 3)'}</span>
           </button>
 
           {/* Desktop Simulator / Observer Mode */}
           <button
             onClick={onPlayDesktop}
-            className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold text-sm tracking-wider uppercase border border-cyan-500/40 flex items-center justify-center gap-2 transition-all cursor-pointer"
+            className="w-full sm:w-auto px-5 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-cyan-300 font-bold text-sm tracking-wider uppercase border border-cyan-500/40 flex items-center justify-center gap-2 transition-all cursor-pointer"
           >
             <Monitor className="w-5 h-5" />
-            <span>{isArabic ? 'طور الحاسوب / المراقب' : 'Desktop / Observer Mode'}</span>
+            <span>{isArabic ? 'طور الحاسوب' : 'Desktop Mode'}</span>
           </button>
 
           {/* Open Physical Rulebook */}
           <button
             onClick={onOpenManual}
-            className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-sm tracking-wider uppercase border border-amber-500/50 flex items-center justify-center gap-2 transition-all cursor-pointer"
+            className="w-full sm:w-auto px-5 py-3.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 font-bold text-sm tracking-wider uppercase border border-amber-500/40 flex items-center justify-center gap-2 transition-all cursor-pointer"
           >
             <BookOpen className="w-5 h-5" />
-            <span>{isArabic ? 'عرض / طباعة دليل الطاولة' : 'Open Rulebook Manual'}</span>
+            <span>{isArabic ? 'دليل الطاولة' : 'Rulebook Manual'}</span>
           </button>
         </div>
       </main>

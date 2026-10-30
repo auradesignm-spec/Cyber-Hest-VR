@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Language, ScenarioId, GameStatus } from '../types/game';
+import { Language, ScenarioId, GameStatus, DifficultyLevel } from '../types/game';
 import {
   Shield,
   Clock,
@@ -19,12 +19,18 @@ import {
   Sparkles,
   Trophy,
   AlertOctagon,
+  GraduationCap,
+  Gauge,
+  CheckCircle,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface HUDOverlayProps {
   language: Language;
   scenarioId: ScenarioId;
   gameStatus: GameStatus;
+  difficulty?: DifficultyLevel;
+  onChangeDifficulty?: (d: DifficultyLevel) => void;
   timeRemaining: number;
   health: number; // 0 - 100
   score: number;
@@ -33,8 +39,10 @@ interface HUDOverlayProps {
   onOpenManual: () => void;
   onRestartScenario: () => void;
   onReturnToMenu: () => void;
+  onOpenTraining?: () => void;
   onTriggerTeamShout: () => void;
   lastTeamShout: string | null;
+  educationalFeedback?: { messageEn: string; messageAr: string; isCorrect: boolean } | null;
   vrActive: boolean;
 }
 
@@ -42,6 +50,8 @@ export const HUDOverlay: React.FC<HUDOverlayProps> = ({
   language,
   scenarioId,
   gameStatus,
+  difficulty = 'medium',
+  onChangeDifficulty,
   timeRemaining,
   health,
   score,
@@ -50,8 +60,10 @@ export const HUDOverlay: React.FC<HUDOverlayProps> = ({
   onOpenManual,
   onRestartScenario,
   onReturnToMenu,
+  onOpenTraining,
   onTriggerTeamShout,
   lastTeamShout,
+  educationalFeedback,
   vrActive,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -105,8 +117,26 @@ export const HUDOverlay: React.FC<HUDOverlayProps> = ({
           </div>
         </div>
 
-        {/* Center: Timer & Score */}
-        <div className="flex items-center gap-4 p-2.5 px-5 rounded-xl bg-slate-950/80 border border-slate-800 backdrop-blur-sm text-slate-100 shadow-lg">
+        {/* Center: Timer & Score & Difficulty */}
+        <div className="flex items-center gap-3 sm:gap-4 p-2.5 px-4 rounded-xl bg-slate-950/80 border border-slate-800 backdrop-blur-sm text-slate-100 shadow-lg">
+          {/* Difficulty Badge */}
+          <div className="flex items-center gap-1 font-mono text-[11px]">
+            <Gauge className="w-3.5 h-3.5 text-cyan-400" />
+            <span
+              className={
+                difficulty === 'easy'
+                  ? 'text-emerald-400 font-bold'
+                  : difficulty === 'medium'
+                  ? 'text-cyan-300 font-bold'
+                  : 'text-amber-400 font-bold'
+              }
+            >
+              {difficulty.toUpperCase()}
+            </span>
+          </div>
+
+          <div className="h-4 w-px bg-slate-800" />
+
           <div className="flex items-center gap-1.5 font-mono text-xs sm:text-sm">
             <Clock className="w-4 h-4 text-amber-400" />
             <span className={timeRemaining < 20 ? 'text-red-400 font-bold' : 'text-slate-200'}>
@@ -141,6 +171,26 @@ export const HUDOverlay: React.FC<HUDOverlayProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Floating Educational Feedback Banner (Immediate Correct / Incorrect Guidance) */}
+      {educationalFeedback && (
+        <div
+          className={`pointer-events-auto mx-auto my-2 px-5 py-3 rounded-2xl border backdrop-blur-md shadow-2xl flex items-center gap-3 text-xs sm:text-sm font-mono max-w-xl transition-all animate-in fade-in slide-in-from-top-2 duration-200 ${
+            educationalFeedback.isCorrect
+              ? 'bg-emerald-950/95 border-emerald-400 text-emerald-200'
+              : 'bg-red-950/95 border-red-400 text-red-200'
+          }`}
+        >
+          {educationalFeedback.isCorrect ? (
+            <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
+          ) : (
+            <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
+          )}
+          <span className="font-semibold leading-relaxed">
+            {isArabic ? educationalFeedback.messageAr : educationalFeedback.messageEn}
+          </span>
+        </div>
+      )}
 
       {/* Middle Banner: Victory or Defeat Overlay Modal */}
       {gameStatus === 'victory' && (
@@ -243,8 +293,36 @@ export const HUDOverlay: React.FC<HUDOverlayProps> = ({
               </div>
             )}
 
-            {/* Actions */}
+            {/* Actions & Difficulty Switcher */}
             <div className="flex items-center gap-2">
+              {onChangeDifficulty && (
+                <div className="flex items-center p-0.5 rounded-lg bg-slate-900 border border-slate-800">
+                  {(['easy', 'medium', 'hard'] as const).map((lvl) => (
+                    <button
+                      key={lvl}
+                      onClick={() => onChangeDifficulty(lvl)}
+                      className={`px-2 py-1 rounded text-[10px] font-mono font-bold uppercase transition-all cursor-pointer ${
+                        difficulty === lvl
+                          ? 'bg-cyan-500 text-slate-950 font-black shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {lvl}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {onOpenTraining && (
+                <button
+                  onClick={onOpenTraining}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-mono transition-all cursor-pointer"
+                  title="Training Simulation"
+                >
+                  <GraduationCap className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{isArabic ? 'التدريب' : 'Training'}</span>
+                </button>
+              )}
               <button
                 onClick={onRestartScenario}
                 className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 transition-all cursor-pointer"

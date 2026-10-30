@@ -7,7 +7,52 @@ export type Language = 'en' | 'ar';
 
 export type ScenarioId = 'scenario-1' | 'scenario-2' | 'scenario-3';
 
-export type GameStatus = 'start' | 'briefing' | 'playing' | 'victory' | 'gameover';
+export type DifficultyLevel = 'easy' | 'medium' | 'hard';
+
+export interface QuestionOption {
+  id: string;
+  labelEn: string;
+  labelAr: string;
+  isCorrect: boolean;
+  explanationEn: string;
+  explanationAr: string;
+}
+
+export interface EducationalQuestion {
+  id: string;
+  difficulty: DifficultyLevel;
+  category: 'osi' | 'protocols' | 'threats' | 'ports' | 'encryption' | 'hex' | 'subnets';
+  categoryLabelEn: string;
+  categoryLabelAr: string;
+  promptEn: string;
+  promptAr: string;
+  options: QuestionOption[];
+}
+
+export type GameStatus = 'start' | 'briefing' | 'playing' | 'victory' | 'gameover' | 'training';
+
+export type TrainingStepId =
+  | 'welcome'
+  | 'blaster_basics'
+  | 'target_lock'
+  | 'scenario_firewall'
+  | 'scenario_payload'
+  | 'scenario_ddos'
+  | 'graduation';
+
+export interface TrainingState {
+  step: TrainingStepId;
+  leftFired: boolean;
+  rightFired: boolean;
+  packetsDestroyed: number;
+  lockedTargets: string[];
+  shotTargets: string[];
+  lastFeedback: {
+    type: 'success' | 'warning' | 'info';
+    messageEn: string;
+    messageAr: string;
+  } | null;
+}
 
 export interface HexPortMapping {
   hex: string;

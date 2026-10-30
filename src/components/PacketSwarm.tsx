@@ -6,12 +6,13 @@
 import React, { useRef, useMemo, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { DataPacketInstance, ScenarioId } from '../types/game';
+import { DataPacketInstance, ScenarioId, DifficultyLevel } from '../types/game';
 import { spatialAudio } from '../audio/SpatialAudio';
 
 interface PacketSwarmProps {
   scenarioId: ScenarioId;
   active: boolean;
+  difficulty?: DifficultyLevel;
   onPacketDestroyed?: (packetId: number, x: number, y: number, z: number) => void;
   onPacketBreach?: () => void;
 }
@@ -37,7 +38,7 @@ const _ray = new THREE.Ray();
 const _sphere = new THREE.Sphere(new THREE.Vector3(), 0.3);
 
 export const PacketSwarm = forwardRef<PacketSwarmHandle, PacketSwarmProps>(
-  ({ scenarioId, active, onPacketDestroyed, onPacketBreach }, ref) => {
+  ({ scenarioId, active, difficulty = 'medium', onPacketDestroyed, onPacketBreach }, ref) => {
     // 3 Instanced meshes forming the dual-core threat capsule with energy ring
     const capsuleMeshRef = useRef<THREE.InstancedMesh>(null);
     const coreMeshRef = useRef<THREE.InstancedMesh>(null);
@@ -47,7 +48,6 @@ export const PacketSwarm = forwardRef<PacketSwarmHandle, PacketSwarmProps>(
     const spawnTimerRef = useRef(0);
 
     // 1. Threat Capsule Body Geometry (Crimson PBR Metallic)
-    // 1. Threat Capsule Body Geometry (35% scale reduced: 0.065 radius, 0.10 length)
     const capsuleGeo = useMemo(() => new THREE.CapsuleGeometry(0.065, 0.10, 8, 16), []);
     const capsuleMat = useMemo(
       () =>
@@ -63,7 +63,7 @@ export const PacketSwarm = forwardRef<PacketSwarmHandle, PacketSwarmProps>(
       []
     );
 
-    // 2. Dual Concentrated White/Cyan Energy Cores (35% scale reduced: 0.03 radius)
+    // 2. Dual Concentrated White/Cyan Energy Cores
     const coreGeo = useMemo(() => new THREE.SphereGeometry(0.03, 12, 12), []);
     const coreMat = useMemo(
       () =>
@@ -76,7 +76,7 @@ export const PacketSwarm = forwardRef<PacketSwarmHandle, PacketSwarmProps>(
       []
     );
 
-    // 3. Revolving Outer Glowing Toroidal Energy Ring (35% scale reduced: 0.13 radius)
+    // 3. Revolving Outer Glowing Toroidal Energy Ring
     const ringGeo = useMemo(() => new THREE.TorusGeometry(0.13, 0.011, 8, 24), []);
     const ringMat = useMemo(
       () =>
@@ -110,92 +110,32 @@ export const PacketSwarm = forwardRef<PacketSwarmHandle, PacketSwarmProps>(
       packetsRef.current = initialPackets;
     }, []);
 
-    // Spawning logic with Strict Side-Lane Separation (Top/Left/Right perimeters)
-    // Guarantees threat packets NEVER cross directly in front of the center solution target badges
+    // Spawning logic with Strict Side-Lane Separation: X in [-4.0 to -2.5] or [+2.5 to +4.0]
+    // Threat packets NEVER pass through or cover the center Question or Solution badges!
     const spawnPacket = () => {
       const packets = packetsRef.current;
       const inactivePacket = packets.find((p) => !p.active);
       if (!inactivePacket) return;
 
-      // Randomly pick perimeter lane: 0 = Left Flank, 1 = Right Flank, 2 = Overhead Ceiling Conduit
-      const lane = Math.floor(Math.random() * 3);
+      // Strictly left or right peripheral lanes
+      const isLeft = Math.random() < 0.5;
 
-      if (scenarioId === 'scenario-1') {
-        if (lane === 0) {
-          // Left Perimeter Lane
-          inactivePacket.x = -2.8 - Math.random() * 0.8;
-          inactivePacket.y = 0.9 + Math.random() * 1.8;
-          inactivePacket.z = 0.5 + Math.random() * 2.0;
-          inactivePacket.targetX = -2.7;
-          inactivePacket.targetY = 1.4 + Math.random() * 0.8;
-          inactivePacket.targetZ = -4.9;
-        } else if (lane === 1) {
-          // Right Perimeter Lane
-          inactivePacket.x = 2.8 + Math.random() * 0.8;
-          inactivePacket.y = 0.9 + Math.random() * 1.8;
-          inactivePacket.z = 0.5 + Math.random() * 2.0;
-          inactivePacket.targetX = 2.7;
-          inactivePacket.targetY = 1.4 + Math.random() * 0.8;
-          inactivePacket.targetZ = -4.9;
-        } else {
-          // Overhead Ceiling Conduit (High clearance above player & center targets)
-          inactivePacket.x = (Math.random() - 0.5) * 1.8;
-          inactivePacket.y = 3.3 + Math.random() * 0.4;
-          inactivePacket.z = 1.0 + Math.random() * 2.0;
-          inactivePacket.targetX = (Math.random() - 0.5) * 1.8;
-          inactivePacket.targetY = 3.4;
-          inactivePacket.targetZ = -4.9;
-        }
-      } else if (scenarioId === 'scenario-2') {
-        if (lane === 0) {
-          // Left Peripheral Server Aisle
-          inactivePacket.x = -2.9 - Math.random() * 0.6;
-          inactivePacket.y = 1.0 + Math.random() * 1.6;
-          inactivePacket.z = 1.5 + Math.random() * 2.0;
-          inactivePacket.targetX = -2.8;
-          inactivePacket.targetY = 1.3;
-          inactivePacket.targetZ = -4.4;
-        } else if (lane === 1) {
-          // Right Peripheral Server Aisle
-          inactivePacket.x = 2.9 + Math.random() * 0.6;
-          inactivePacket.y = 1.0 + Math.random() * 1.6;
-          inactivePacket.z = 1.5 + Math.random() * 2.0;
-          inactivePacket.targetX = 2.8;
-          inactivePacket.targetY = 1.3;
-          inactivePacket.targetZ = -4.4;
-        } else {
-          // High Overhead Tray
-          inactivePacket.x = (Math.random() - 0.5) * 2.0;
-          inactivePacket.y = 3.4 + Math.random() * 0.3;
-          inactivePacket.z = 1.5 + Math.random() * 1.8;
-          inactivePacket.targetX = (Math.random() - 0.5) * 1.2;
-          inactivePacket.targetY = 3.5;
-          inactivePacket.targetZ = -4.4;
-        }
+      if (isLeft) {
+        // Left Lane (X: -4.0 to -2.5)
+        inactivePacket.x = -2.6 - Math.random() * 1.2; // -2.6 to -3.8
+        inactivePacket.y = 0.8 + Math.random() * 1.6;
+        inactivePacket.z = 1.5 + Math.random() * 2.5;
+        inactivePacket.targetX = -2.6 - Math.random() * 1.0; // stays on left
+        inactivePacket.targetY = 0.9 + Math.random() * 1.4;
+        inactivePacket.targetZ = -4.9;
       } else {
-        // Scenario 3: DDoS Out-of-bounds Perimeters
-        if (lane === 0) {
-          inactivePacket.x = -3.4 - Math.random() * 0.5;
-          inactivePacket.y = 1.1 + Math.random() * 1.8;
-          inactivePacket.z = 0.5 + Math.random() * 2.5;
-          inactivePacket.targetX = -3.2;
-          inactivePacket.targetY = 1.2;
-          inactivePacket.targetZ = -4.6;
-        } else if (lane === 1) {
-          inactivePacket.x = 3.4 + Math.random() * 0.5;
-          inactivePacket.y = 1.1 + Math.random() * 1.8;
-          inactivePacket.z = 0.5 + Math.random() * 2.5;
-          inactivePacket.targetX = 3.2;
-          inactivePacket.targetY = 1.2;
-          inactivePacket.targetZ = -4.6;
-        } else {
-          inactivePacket.x = (Math.random() - 0.5) * 2.5;
-          inactivePacket.y = 3.5 + Math.random() * 0.3;
-          inactivePacket.z = 0.5 + Math.random() * 2.5;
-          inactivePacket.targetX = (Math.random() - 0.5) * 1.5;
-          inactivePacket.targetY = 3.5;
-          inactivePacket.targetZ = -4.6;
-        }
+        // Right Lane (X: +2.5 to +4.0)
+        inactivePacket.x = 2.6 + Math.random() * 1.2; // +2.6 to +3.8
+        inactivePacket.y = 0.8 + Math.random() * 1.6;
+        inactivePacket.z = 1.5 + Math.random() * 2.5;
+        inactivePacket.targetX = 2.6 + Math.random() * 1.0; // stays on right
+        inactivePacket.targetY = 0.9 + Math.random() * 1.4;
+        inactivePacket.targetZ = -4.9;
       }
 
       const dx = inactivePacket.targetX - inactivePacket.x;
@@ -203,10 +143,11 @@ export const PacketSwarm = forwardRef<PacketSwarmHandle, PacketSwarmProps>(
       const dz = inactivePacket.targetZ - inactivePacket.z;
       const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
 
-      const speed = scenarioId === 'scenario-3' ? 1.65 : 1.05;
-      inactivePacket.vx = (dx / dist) * speed;
-      inactivePacket.vy = (dy / dist) * speed;
-      inactivePacket.vz = (dz / dist) * speed;
+      // Speed paced by difficulty tier
+      const speedMultiplier = difficulty === 'easy' ? 0.55 : difficulty === 'medium' ? 1.05 : 1.65;
+      inactivePacket.vx = (dx / dist) * speedMultiplier;
+      inactivePacket.vy = (dy / dist) * speedMultiplier;
+      inactivePacket.vz = (dz / dist) * speedMultiplier;
       inactivePacket.active = true;
     };
 

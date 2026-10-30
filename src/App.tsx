@@ -12,9 +12,12 @@ import {
   Language,
   ScenarioId,
   GameStatus,
+  DifficultyLevel,
   Scenario1Data,
   Scenario2Data,
   Scenario3Data,
+  TrainingStepId,
+  TrainingState,
 } from './types/game';
 import {
   generateScenario1,
@@ -25,15 +28,19 @@ import {
   validateSubnetShot,
   HEX_PORT_TABLE,
 } from './game/rules';
+import { CURRICULUM_QUESTIONS } from './game/curriculum';
 import { spatialAudio } from './audio/SpatialAudio';
 import { ServerRoom } from './components/ServerRoom';
 import { PacketSwarm, PacketSwarmHandle } from './components/PacketSwarm';
 import { Lasers, LaserHandle } from './components/Lasers';
 import { ParticleSystem, ParticleSystemHandle } from './components/ParticleSystem';
 import { VRPlayer, VRPlayerHandle, TargetNodeInfo } from './components/VRPlayer';
+import { EducationalQuestion3D } from './components/EducationalQuestion3D';
 import { Scenario1Firewall } from './components/Scenario1Firewall';
 import { Scenario2Payload } from './components/Scenario2Payload';
 import { Scenario3DDoS } from './components/Scenario3DDoS';
+import { TrainingSimulation } from './components/TrainingSimulation';
+import { TrainingOverlay } from './components/TrainingOverlay';
 import { StartScreen } from './components/StartScreen';
 import { HUDOverlay } from './components/HUDOverlay';
 import { RulebookModal } from './components/RulebookModal';
@@ -77,6 +84,26 @@ export default function App() {
   const [gameStatus, setGameStatus] = useState<GameStatus>(autoStart ? 'playing' : 'start');
   const [scenarioId, setScenarioId] = useState<ScenarioId>(initialScenario);
   const [selectedScenarioOption, setSelectedScenarioOption] = useState<ScenarioId | 'random'>('random');
+  const [difficulty, setDifficulty] = useState<DifficultyLevel>('medium');
+  const [questionIndex, setQuestionIndex] = useState(0);
+  const [educationalFeedback, setEducationalFeedback] = useState<{
+    messageEn: string;
+    messageAr: string;
+    isCorrect: boolean;
+  } | null>(null);
+  const [lastQuestionResult, setLastQuestionResult] = useState<{
+    optionId: string;
+    isCorrect: boolean;
+  } | null>(null);
+
+  const currentQuestions = useMemo(() => CURRICULUM_QUESTIONS[difficulty], [difficulty]);
+  const currentQuestion = currentQuestions[questionIndex % currentQuestions.length];
+
+  const getInitialTimer = useCallback((diff: DifficultyLevel) => {
+    if (diff === 'easy') return 120;
+    if (diff === 'hard') return 60;
+    return 90;
+  }, []);
 
   const [health, setHealth] = useState(100);
   const [score, setScore] = useState(0);
@@ -86,6 +113,17 @@ export default function App() {
   const [lastTeamShout, setLastTeamShout] = useState<string | null>(null);
   const [isInVR, setIsInVR] = useState(false);
   const [alarmActive, setAlarmActive] = useState(false);
+
+  // Guided Training Simulation State
+  const [trainingState, setTrainingState] = useState<TrainingState>({
+    step: 'welcome',
+    leftFired: false,
+    rightFired: false,
+    packetsDestroyed: 0,
+    lockedTargets: [],
+    shotTargets: [],
+    lastFeedback: null,
+  });
 
   // Magnetic Aim Target Lock State
   const [lockedTargetId, setLockedTargetId] = useState<string | number | null>(null);
@@ -117,57 +155,78 @@ export default function App() {
     return () => unsubscribe();
   }, [xrStore, gameStatus]);
 
-  // Compute Active 3D Target Nodes for Magnetic Aim Assist based on current Scenario
+  // Compute Active 3D Target Nodes for Magnetic Aim Assist based on current Scenario / Educational Question
   const activeTargets: TargetNodeInfo[] = useMemo(() => {
+    // Training mode target nodes
+    if (gameStatus === 'training') {
+      if (trainingState.step === 'welcome' || trainingState.step === 'blaster_basics') {
+        const list: TargetNodeInfo[] = [];
+        if (trainingState.packetsDestroyed < 1) {
+          list.push({ id: 'drone-1', position: [-0.9, 1.6, -2.4], radius: 0.38 });
+        }
+        if (trainingState.packetsDestroyed < 2) {
+          list.push({ id: 'drone-2', position: [0.9, 1.8, -2.4], radius: 0.38 });
+        }
+        return list;
+      }
+      if (trainingState.step === 'target_lock') {
+        return [
+          { id: 'pylon-alpha', position: [-1.4, 1.5, -2.8], radius: 0.42 },
+          { id: 'pylon-beta', position: [0.0, 1.8, -3.2], radius: 0.42 },
+          { id: 'pylon-gamma', position: [1.4, 1.5, -2.8], radius: 0.42 },
+        ];
+      }
+      if (trainingState.step === 'scenario_firewall') {
+        return [
+          { id: 22, position: [-1.8, 1.6, -3.1], radius: 0.45 },
+          { id: 80, position: [-0.6, 1.85, -3.1], radius: 0.45 },
+          { id: 443, position: [0.6, 1.85, -3.1], radius: 0.45 },
+          { id: 53, position: [1.8, 1.6, -3.1], radius: 0.45 },
+        ];
+      }
+      if (trainingState.step === 'scenario_payload') {
+        return [
+          { id: 'AES-256', position: [-1.5, 1.45, -2.4], radius: 0.45 },
+          { id: 'RSA-4096', position: [-0.5, 1.6, -2.4], radius: 0.45 },
+          { id: 'TLS-1.3', position: [0.5, 1.6, -2.4], radius: 0.45 },
+          { id: 'SHA-256', position: [1.5, 1.45, -2.4], radius: 0.45 },
+        ];
+      }
+      if (trainingState.step === 'scenario_ddos') {
+        return [
+          { id: 'ALPHA', position: [-1.8, 1.8, -2.8], radius: 0.55 },
+          { id: 'BETA', position: [0.0, 2.15, -3.1], radius: 0.55 },
+          { id: 'GAMMA', position: [1.8, 1.8, -2.8], radius: 0.55 },
+        ];
+      }
+      if (trainingState.step === 'graduation') {
+        return [{ id: 'trophy', position: [0, 1.9, -2.2], radius: 0.5 }];
+      }
+      return [];
+    }
+
     if (gameStatus !== 'playing') return [];
 
-    if (scenarioId === 'scenario-1') {
-      const positions: [number, number, number][] = [
-        [-1.85, 1.65, -3.2],
-        [-0.65, 1.95, -3.7],
-        [0.65, 1.95, -3.7],
-        [1.85, 1.65, -3.2],
-      ];
-      return scenario1Data.allPortOptions.slice(0, 4).map((port, idx) => ({
-        id: port,
-        position: positions[idx % positions.length],
-        radius: 0.45,
-      }));
-    }
-
-    if (scenarioId === 'scenario-2') {
-      const positions: Record<string, [number, number, number]> = {
-        'AES-256': [-1.85, 1.25, -2.2],
-        'RSA-4096': [-0.65, 1.35, -1.8],
-        'TLS-1.3': [0.65, 1.35, -1.8],
-        'SHA-256': [1.85, 1.25, -2.2],
-      };
-      return scenario2Data.availableShields.map((shield) => ({
-        id: shield.id,
-        position: positions[shield.id] || [0, 1.3, -2],
-        radius: 0.45,
-      }));
-    }
-
-    if (scenarioId === 'scenario-3') {
-      const positions: Record<string, [number, number, number]> = {
-        ALPHA: [-2.1, 1.85, -2.8],
-        BETA: [0.0, 2.25, -3.6],
-        GAMMA: [2.1, 1.85, -2.8],
-      };
-      return scenario3Data.nodes.map((node) => ({
-        id: node.id,
-        position: positions[node.id] || [0, 2, -3],
-        radius: 0.55,
-      }));
-    }
-
-    return [];
-  }, [scenarioId, scenario1Data, scenario2Data, scenario3Data, gameStatus]);
+    // Educational Shoot-to-Solve Solution Badges (Y: 1.25m, Z: -3.5m)
+    const positions: [number, number, number][] = [
+      [-1.55, 1.25, -3.5],
+      [0.0, 1.25, -3.5],
+      [1.55, 1.25, -3.5],
+    ];
+    return currentQuestion.options.map((opt, idx) => ({
+      id: opt.id,
+      position: positions[idx] || [0, 1.25, -3.5],
+      radius: 0.55,
+    }));
+  }, [gameStatus, trainingState, currentQuestion]);
 
   // Start or Reset a Scenario
   const initScenario = useCallback(
-    (targetScenario?: ScenarioId) => {
+    (targetScenario?: ScenarioId, newDifficulty?: DifficultyLevel) => {
+      const activeDiff = newDifficulty || difficulty;
+      if (newDifficulty) {
+        setDifficulty(newDifficulty);
+      }
       let nextId = targetScenario;
       if (!nextId) {
         if (selectedScenarioOption === 'random') {
@@ -180,22 +239,25 @@ export default function App() {
 
       setScenarioId(nextId);
       setHealth(100);
-      setTimeRemaining(90);
+      setTimeRemaining(getInitialTimer(activeDiff));
       setGameStatus('playing');
+      setQuestionIndex(0);
+      setEducationalFeedback(null);
+      setLastQuestionResult(null);
       setLastTeamShout(null);
       setAlarmActive(false);
       setLockedTargetId(null);
       spatialAudio.startAmbientHum();
-
-      if (nextId === 'scenario-1') {
-        setScenario1Data(generateScenario1());
-      } else if (nextId === 'scenario-2') {
-        setScenario2Data(generateScenario2());
-      } else {
-        setScenario3Data(generateScenario3());
-      }
     },
-    [selectedScenarioOption]
+    [selectedScenarioOption, difficulty, getInitialTimer]
+  );
+
+  const handleChangeDifficulty = useCallback(
+    (newDiff: DifficultyLevel) => {
+      spatialAudio.playButtonBeep(640);
+      initScenario(undefined, newDiff);
+    },
+    [initScenario]
   );
 
   // Countdown Timer & Damage Alarms
@@ -252,7 +314,74 @@ export default function App() {
     setHealth((prev) => Math.min(100, prev + 2));
   }, []);
 
-  // SCENARIO 1: Port target shot
+  // 3-Tier Educational Question Answer Handler (Shoot-to-Solve)
+  const handleOptionShot = useCallback(
+    (optionId: string, position: [number, number, number]) => {
+      if (gameStatus !== 'playing') return;
+
+      const matchedOption = currentQuestion.options.find((opt) => opt.id === optionId);
+      const isCorrect = Boolean(matchedOption?.isCorrect);
+      setLastQuestionResult({ optionId, isCorrect });
+
+      const explanationEn = matchedOption?.explanationEn || (isCorrect ? 'Correct protocol selected!' : 'Security violation detected.');
+      const explanationAr = matchedOption?.explanationAr || (isCorrect ? 'تم اختيار البروتوكول الصحيح!' : 'تم رصد انتهاك أمني.');
+
+      if (isCorrect) {
+        spatialAudio.playSuccessChime();
+        particlesRef.current?.spawnSparks(position[0], position[1], position[2], '#10b981');
+        particlesRef.current?.spawnVoxelShatter(0, 3.5, -5.0, '#10b981');
+        setScore((prev) => prev + 500);
+        packetSwarmRef.current?.destroyAll();
+
+        setEducationalFeedback({
+          messageEn: `CORRECT: ${explanationEn}`,
+          messageAr: `إجابة صحيحة: ${explanationAr}`,
+          isCorrect: true,
+        });
+
+        const isLastQuestion = questionIndex >= currentQuestions.length - 1;
+        setTimeout(() => {
+          if (isLastQuestion) {
+            setGameStatus('victory');
+          } else {
+            setQuestionIndex((prev) => prev + 1);
+            setLastQuestionResult(null);
+            setEducationalFeedback(null);
+            setTimeRemaining((prev) => Math.min(getInitialTimer(difficulty), prev + 20));
+          }
+        }, 1600);
+      } else {
+        spatialAudio.playErrorBuzzer();
+        vrPlayerRef.current?.triggerHeavyRumble();
+        particlesRef.current?.spawnSparks(position[0], position[1], position[2], '#ef4444');
+        setAlarmActive(true);
+        setTimeout(() => setAlarmActive(false), 900);
+
+        setScore((prev) => Math.max(0, prev - 50));
+        setHealth((prev) => {
+          const next = prev - 15;
+          if (next <= 0) {
+            setGameStatus('gameover');
+            return 0;
+          }
+          return next;
+        });
+
+        setEducationalFeedback({
+          messageEn: `INCORRECT: ${explanationEn}`,
+          messageAr: `إجابة خاطئة: ${explanationAr}`,
+          isCorrect: false,
+        });
+
+        setTimeout(() => {
+          setLastQuestionResult(null);
+        }, 1200);
+      }
+    },
+    [gameStatus, currentQuestion, questionIndex, currentQuestions.length, difficulty, getInitialTimer]
+  );
+
+  // SCENARIO 1: Port target shot (Legacy fallback)
   const handlePortShot = useCallback(
     (portNumber: number) => {
       if (gameStatus !== 'playing') return;
@@ -337,10 +466,209 @@ export default function App() {
     [gameStatus, scenario3Data.correctNodeId]
   );
 
+  // Guided Training Hit Handler
+  const handleTrainingTargetHit = useCallback(
+    (targetId: string | number, pos: [number, number, number]) => {
+      const step = trainingState.step;
+
+      if (step === 'welcome' || step === 'blaster_basics') {
+        particlesRef.current?.spawnVoxelShatter(pos[0], pos[1], pos[2], '#00ffcc');
+        spatialAudio.playSuccessChime();
+        setTrainingState((prev) => ({
+          ...prev,
+          packetsDestroyed: prev.packetsDestroyed + 1,
+        }));
+        return;
+      }
+
+      if (step === 'target_lock') {
+        particlesRef.current?.spawnSparks(pos[0], pos[1], pos[2], '#00ffcc');
+        spatialAudio.playSuccessChime();
+        setTrainingState((prev) => {
+          const idStr = String(targetId);
+          if (prev.shotTargets.includes(idStr)) return prev;
+          return {
+            ...prev,
+            shotTargets: [...prev.shotTargets, idStr],
+          };
+        });
+        return;
+      }
+
+      if (step === 'scenario_firewall') {
+        if (Number(targetId) === 80) {
+          particlesRef.current?.spawnSparks(pos[0], pos[1], pos[2], '#10b981');
+          spatialAudio.playSuccessChime();
+          setTrainingState((prev) => ({
+            ...prev,
+            shotTargets: ['80'],
+          }));
+        } else {
+          particlesRef.current?.spawnSparks(pos[0], pos[1], pos[2], '#ef4444');
+          spatialAudio.playErrorBuzzer();
+          vrPlayerRef.current?.triggerHeavyRumble();
+        }
+        return;
+      }
+
+      if (step === 'scenario_payload') {
+        if (targetId === 'AES-256') {
+          particlesRef.current?.spawnSparks(pos[0], pos[1], pos[2], '#10b981');
+          spatialAudio.playSuccessChime();
+          setTrainingState((prev) => ({
+            ...prev,
+            shotTargets: ['AES-256'],
+          }));
+        } else {
+          particlesRef.current?.spawnSparks(pos[0], pos[1], pos[2], '#ef4444');
+          spatialAudio.playErrorBuzzer();
+          vrPlayerRef.current?.triggerHeavyRumble();
+        }
+        return;
+      }
+
+      if (step === 'scenario_ddos') {
+        if (targetId === 'BETA') {
+          particlesRef.current?.spawnVoxelShatter(pos[0], pos[1], pos[2], '#00ffcc');
+          spatialAudio.playEmpShockwave();
+          setTrainingState((prev) => ({
+            ...prev,
+            shotTargets: ['BETA'],
+          }));
+        } else {
+          particlesRef.current?.spawnSparks(pos[0], pos[1], pos[2], '#ef4444');
+          spatialAudio.playErrorBuzzer();
+          vrPlayerRef.current?.triggerHeavyRumble();
+        }
+        return;
+      }
+
+      if (step === 'graduation') {
+        particlesRef.current?.spawnSparks(pos[0], pos[1], pos[2], '#10b981');
+        spatialAudio.playSuccessChime();
+      }
+    },
+    [trainingState.step]
+  );
+
+  // Training Navigation Handlers
+  const handleStartTraining = useCallback(() => {
+    setGameStatus('training');
+    setHealth(100);
+    setTimeRemaining(999);
+    setAlarmActive(false);
+    setLockedTargetId(null);
+    setTrainingState({
+      step: 'welcome',
+      leftFired: false,
+      rightFired: false,
+      packetsDestroyed: 0,
+      lockedTargets: [],
+      shotTargets: [],
+      lastFeedback: null,
+    });
+    spatialAudio.startAmbientHum();
+    spatialAudio.playButtonBeep(640);
+  }, []);
+
+  const handleTrainingSetStep = useCallback((stepId: TrainingStepId) => {
+    spatialAudio.playButtonBeep(520);
+    setTrainingState((prev) => ({
+      ...prev,
+      step: stepId,
+      shotTargets: [],
+      lastFeedback: null,
+    }));
+  }, []);
+
+  const handleTrainingNextStep = useCallback(() => {
+    spatialAudio.playButtonBeep(720);
+    const steps: TrainingStepId[] = [
+      'welcome',
+      'blaster_basics',
+      'target_lock',
+      'scenario_firewall',
+      'scenario_payload',
+      'scenario_ddos',
+      'graduation',
+    ];
+    setTrainingState((prev) => {
+      const idx = steps.indexOf(prev.step);
+      const nextStep = idx < steps.length - 1 ? steps[idx + 1] : 'graduation';
+      return {
+        ...prev,
+        step: nextStep,
+        shotTargets: [],
+        lastFeedback: null,
+      };
+    });
+  }, []);
+
+  const handleTrainingPrevStep = useCallback(() => {
+    spatialAudio.playButtonBeep(420);
+    const steps: TrainingStepId[] = [
+      'welcome',
+      'blaster_basics',
+      'target_lock',
+      'scenario_firewall',
+      'scenario_payload',
+      'scenario_ddos',
+      'graduation',
+    ];
+    setTrainingState((prev) => {
+      const idx = steps.indexOf(prev.step);
+      const prevStep = idx > 0 ? steps[idx - 1] : 'welcome';
+      return {
+        ...prev,
+        step: prevStep,
+        shotTargets: [],
+        lastFeedback: null,
+      };
+    });
+  }, []);
+
+  const handleResetTraining = useCallback(() => {
+    spatialAudio.playButtonBeep(480);
+    setTrainingState({
+      step: 'welcome',
+      leftFired: false,
+      rightFired: false,
+      packetsDestroyed: 0,
+      lockedTargets: [],
+      shotTargets: [],
+      lastFeedback: null,
+    });
+  }, []);
+
+  const handleTriggerTrainingComms = useCallback(() => {
+    spatialAudio.playButtonBeep(880);
+    if (trainingState.step === 'scenario_firewall') {
+      const text = language === 'ar'
+        ? 'فريق الطاولة: "الرمز 0x0050 بالدليل هو المنفذ 80 (HTTP)! أطلق على أسطوانة Port 80!"'
+        : 'Table team shouts: "Code 0x0050 in the manual translates to Port 80 (HTTP)! Shoot Port 80!"';
+      setLastTeamShout(text);
+    } else if (trainingState.step === 'scenario_payload') {
+      const text = language === 'ar'
+        ? 'فريق الطاولة: "تتابع أحمر-أزرق-أخضر هو برمجية فدية Ransomware! الدرع المطلوب هو AES-256!"'
+        : 'Table team shouts: "Red-Blue-Green indicates Ransomware! Prescribed countermeasure is AES-256!"';
+      setLastTeamShout(text);
+    } else if (trainingState.step === 'scenario_ddos') {
+      const text = language === 'ar'
+        ? 'فريق الطاولة: "الآي بي 192.168.4.110 يتبع النطاق Subnet Delta! أطلق على العقدة BETA لإطلاق نبضة EMP!"'
+        : 'Table team shouts: "Attacker IP 192.168.4.110 routes to Subnet Delta on Node BETA! Shoot Node BETA for EMP shockwave!"';
+      setLastTeamShout(text);
+    } else {
+      const text = language === 'ar'
+        ? 'فريق الطاولة: "أجهزة الاتصال جاهزة ومستقرة. ننتظر توجيهاتك!"'
+        : 'Table team comms: "Comms link online and operational. Awaiting your report!"';
+      setLastTeamShout(text);
+    }
+  }, [language, trainingState.step]);
+
   // Handle laser fire from VR controller or desktop mouse (Aim, Lock & Shoot to Solve)
   const handleFireLaser = useCallback(
     (origin: THREE.Vector3, direction: THREE.Vector3, side: 'left' | 'right' | 'desktop', aimOrigin?: THREE.Vector3) => {
-      if (gameStatus !== 'playing') return;
+      if (gameStatus !== 'playing' && gameStatus !== 'training') return;
 
       const boltColor = side === 'left' ? '#ec4899' : '#00f0ff';
       // 1. Spawn traveling 3D volumetric energy bolt
@@ -349,6 +677,26 @@ export default function App() {
       // 2. Muzzle flash sparks at weapon barrel
       particlesRef.current?.spawnSparks(origin.x, origin.y, origin.z, boltColor);
 
+      // TRAINING MODE DISPATCH
+      if (gameStatus === 'training') {
+        setTrainingState((prev) => ({
+          ...prev,
+          leftFired: side === 'left' ? true : prev.leftFired,
+          rightFired: side === 'right' || side === 'desktop' ? true : prev.rightFired,
+        }));
+
+        const hitOrigin = aimOrigin || origin;
+        const ray = new THREE.Ray(hitOrigin, direction.clone().normalize());
+
+        activeTargets.forEach((target) => {
+          const sphere = new THREE.Sphere(new THREE.Vector3(...target.position), target.radius || 0.45);
+          if (ray.intersectsSphere(sphere)) {
+            handleTrainingTargetHit(target.id, target.position);
+          }
+        });
+        return;
+      }
+
       // 3. Check hit on packet swarm (using aimOrigin for pinpoint desktop accuracy)
       const hitOrigin = aimOrigin || origin;
       const hitResult = packetSwarmRef.current?.checkRayHit(hitOrigin, direction);
@@ -356,36 +704,18 @@ export default function App() {
         particlesRef.current?.spawnSparks(hitResult.position.x, hitResult.position.y, hitResult.position.z, boltColor);
       }
 
-      // 4. Universal Solver: Raycast against active scenario floating target nodes
+      // 4. Shoot-to-Solve: Raycast against active floating target badges
       const ray = new THREE.Ray(hitOrigin, direction.clone().normalize());
 
-      if (scenarioId === 'scenario-1') {
-        activeTargets.forEach((target) => {
-          const sphere = new THREE.Sphere(new THREE.Vector3(...target.position), target.radius || 0.45);
-          if (ray.intersectsSphere(sphere)) {
-            handlePortShot(Number(target.id));
-            particlesRef.current?.spawnSparks(target.position[0], target.position[1], target.position[2], '#00ffcc');
-          }
-        });
-      } else if (scenarioId === 'scenario-2') {
-        activeTargets.forEach((target) => {
-          const sphere = new THREE.Sphere(new THREE.Vector3(...target.position), target.radius || 0.45);
-          if (ray.intersectsSphere(sphere)) {
-            handleShieldApplied(String(target.id));
-            particlesRef.current?.spawnSparks(target.position[0], target.position[1], target.position[2], '#ec4899');
-          }
-        });
-      } else if (scenarioId === 'scenario-3') {
-        activeTargets.forEach((target) => {
-          const sphere = new THREE.Sphere(new THREE.Vector3(...target.position), target.radius || 0.55);
-          if (ray.intersectsSphere(sphere)) {
-            handleSubnetNodeShot(target.id as 'ALPHA' | 'BETA' | 'GAMMA');
-            particlesRef.current?.spawnSparks(target.position[0], target.position[1], target.position[2], '#10b981');
-          }
-        });
-      }
+      activeTargets.forEach((target) => {
+        const sphere = new THREE.Sphere(new THREE.Vector3(...target.position), target.radius || 0.55);
+        if (ray.intersectsSphere(sphere)) {
+          handleOptionShot(String(target.id), target.position);
+          particlesRef.current?.spawnSparks(target.position[0], target.position[1], target.position[2], '#00f0ff');
+        }
+      });
     },
-    [gameStatus, scenarioId, activeTargets, handlePortShot, handleShieldApplied, handleSubnetNodeShot]
+    [gameStatus, activeTargets, handleOptionShot, handleTrainingTargetHit]
   );
 
   // Grip action handler
@@ -396,33 +726,22 @@ export default function App() {
     []
   );
 
-  // Table Team Voice Shout Simulation
+  // Table Team Voice Shout Simulation: Context-aware clues for current incident
   const handleTriggerTeamShout = useCallback(() => {
     spatialAudio.playButtonBeep(880);
 
-    if (scenarioId === 'scenario-1') {
-      const match = HEX_PORT_TABLE.find((m) => m.hex === scenario1Data.targetHex);
+    if (currentQuestion) {
+      const correctOpt = currentQuestion.options.find((o) => o.isCorrect);
+      const catLabel = language === 'ar' ? currentQuestion.categoryLabelAr : currentQuestion.categoryLabelEn;
+      const optLabel = language === 'ar' ? (correctOpt?.labelAr || 'الحل الصحيح') : (correctOpt?.labelEn || 'Correct Countermeasure');
       const text =
         language === 'ar'
-          ? `الرمز ${scenario1Data.targetHex} بالدليل يعني المنفذ ${scenario1Data.correctPort} (${match?.service})! أطلق على هدف Port ${scenario1Data.correctPort} فوراً!`
-          : `Table team shouts: "Code ${scenario1Data.targetHex} is Port ${scenario1Data.correctPort} (${match?.service})! Shoot Port ${scenario1Data.correctPort}!"`;
+          ? `فريق الطاولة يصرخ: "تحليل بروتوكول [${catLabel}] في الدليل يشير إلى الحل: [${optLabel}]! أطلق على الشارة فوراً!"`
+          : `Table team shouts: "Incident manual says [${catLabel}] requires: [${optLabel}]! Shoot target badge now!"`;
       setLastTeamShout(text);
-    } else if (scenarioId === 'scenario-2') {
-      const seqStr = scenario2Data.colorSequence.join('-');
-      const text =
-        language === 'ar'
-          ? `تتابع الألوان [${seqStr}] هو هجوم ${scenario2Data.payloadName}! أطلق على كرة درع [${scenario2Data.correctShield}] لتطهير الراوتر!`
-          : `Table team shouts: "Colors [${seqStr}] indicate ${scenario2Data.payloadName}! Shoot the ${scenario2Data.correctShield} orb to cleanse the node!"`;
-      setLastTeamShout(text);
-    } else {
-      const correctNode = scenario3Data.nodes.find((n) => n.id === scenario3Data.correctNodeId);
-      const text =
-        language === 'ar'
-          ? `الآي بي المهاجم ${scenario3Data.attackingIp} يقع ضمن ${scenario3Data.targetSubnetCidr}! أطلق على ${correctNode?.label || scenario3Data.correctNodeId} لإطلاق نبضة EMP!`
-          : `Table team shouts: "Attacker IP ${scenario3Data.attackingIp} matches ${scenario3Data.targetSubnetCidr}! Shoot ${correctNode?.label || scenario3Data.correctNodeId} to trigger EMP!"`;
-      setLastTeamShout(text);
+      return;
     }
-  }, [language, scenarioId, scenario1Data, scenario2Data, scenario3Data]);
+  }, [language, currentQuestion]);
 
   // Audio mute toggle
   const handleToggleMute = useCallback(() => {
@@ -472,10 +791,11 @@ export default function App() {
             {/* Traveling High-Speed 3D Laser Bolts */}
             <Lasers ref={lasersRef} onBoltHit={handleBoltImpact} />
 
-            {/* Malicious Packet Swarm (InstancedMesh with Spatial Audio) */}
+            {/* Malicious Packet Swarm (Side corridor lanes only, scaled by difficulty) */}
             <PacketSwarm
               ref={packetSwarmRef}
               scenarioId={scenarioId}
+              difficulty={difficulty}
               active={gameStatus === 'playing'}
               onPacketDestroyed={handlePacketDestroyed}
               onPacketBreach={handlePacketBreach}
@@ -495,65 +815,63 @@ export default function App() {
               onTargetLockChanged={setLockedTargetId}
             />
 
-            {/* Scenario 1: Firewall Hex Code (Shoot Port Target to Seal Blast Door) */}
-            {scenarioId === 'scenario-1' && (
-              <Scenario1Firewall
-                data={scenario1Data}
-                active={gameStatus === 'playing' || gameStatus === 'victory'}
-                onPortHit={handlePortShot}
+            {/* Guided Training Simulation 3D Scene */}
+            {gameStatus === 'training' && (
+              <TrainingSimulation
+                step={trainingState.step}
                 language={language}
                 lockedTargetId={lockedTargetId}
-                isVictory={gameStatus === 'victory'}
+                leftFired={trainingState.leftFired}
+                rightFired={trainingState.rightFired}
+                packetsDestroyed={trainingState.packetsDestroyed}
+                shotTargets={trainingState.shotTargets}
               />
             )}
 
-            {/* Scenario 2: Corrupted Payload & Color Routing (Shoot Protocol Orb to Purge) */}
-            {scenarioId === 'scenario-2' && (
-              <Scenario2Payload
-                data={scenario2Data}
-                active={gameStatus === 'playing' || gameStatus === 'victory'}
-                onShieldApplied={handleShieldApplied}
+            {/* 3D Educational Shoot-to-Solve Question Board & Solution Badges (Crisp Canvas on Solid Navy Opaque Quads) */}
+            {gameStatus !== 'training' && (gameStatus === 'playing' || gameStatus === 'victory') && (
+              <EducationalQuestion3D
+                question={currentQuestion}
+                questionIndex={questionIndex}
+                totalQuestions={currentQuestions.length}
                 language={language}
                 lockedTargetId={lockedTargetId}
+                onSelectOption={(optionId) => {
+                  const target = activeTargets.find((t) => t.id === optionId);
+                  handleOptionShot(optionId, target?.position || [0, 1.25, -3.5]);
+                }}
+                lastFeedback={lastQuestionResult}
               />
             )}
 
-            {/* Scenario 3: DDoS Subnet Blackhole (Shoot Massive Subnet Core Node to Trigger EMP) */}
-            {scenarioId === 'scenario-3' && (
-              <Scenario3DDoS
-                data={scenario3Data}
-                active={gameStatus === 'playing' || gameStatus === 'victory'}
-                onNodeHit={handleSubnetNodeShot}
-                language={language}
-                lockedTargetId={lockedTargetId}
-              />
-            )}
-
-            {/* AAA Post-Processing Pipeline (Active in Desktop mode, bypassed in Quest 3 native XR for 90 FPS) */}
+            {/* Sharp Visuals Post-Processing (Desktop mode: Low bloom, no halo blur, crisp high-contrast cards) */}
             {!isInVR && (
               <EffectComposer multisampling={0}>
                 <Bloom
-                  luminanceThreshold={0.25}
-                  mipmapBlur
-                  intensity={1.2}
+                  luminanceThreshold={0.8}
+                  mipmapBlur={false}
+                  intensity={0.25}
                 />
                 <ChromaticAberration
-                  offset={alarmActive ? new THREE.Vector2(0.005, 0.005) : new THREE.Vector2(0.0008, 0.0008)}
+                  offset={alarmActive ? new THREE.Vector2(0.003, 0.003) : new THREE.Vector2(0.0001, 0.0001)}
                 />
-                <Vignette eskil={false} offset={0.15} darkness={0.75} />
+                <Vignette eskil={false} offset={0.15} darkness={0.65} />
               </EffectComposer>
             )}
           </XR>
         </Canvas>
       </div>
 
-      {/* Start Screen (Visible on entry before entering VR) */}
+      {/* Start Screen with 3-Tier Difficulty Progression System */}
       {gameStatus === 'start' && !isInVR && (
         <StartScreen
           language={language}
           onSelectLanguage={setLanguage}
+          difficulty={difficulty}
+          onSelectDifficulty={handleChangeDifficulty}
           onEnterVR={handleEnterVR}
           onPlayDesktop={() => initScenario()}
+          onStartTraining={handleStartTraining}
           onOpenManual={() => setIsManualOpen(true)}
           isMuted={isMuted}
           onToggleMute={handleToggleMute}
@@ -562,12 +880,32 @@ export default function App() {
         />
       )}
 
+      {/* Guided Training Simulation HUD Overlay */}
+      {gameStatus === 'training' && !isInVR && (
+        <TrainingOverlay
+          language={language}
+          trainingState={trainingState}
+          onSetStep={handleTrainingSetStep}
+          onNextStep={handleTrainingNextStep}
+          onPrevStep={handleTrainingPrevStep}
+          onResetTraining={handleResetTraining}
+          onStartMainGame={() => initScenario()}
+          onOpenManual={() => setIsManualOpen(true)}
+          onTriggerCommsHint={handleTriggerTrainingComms}
+          isMuted={isMuted}
+          onToggleMute={handleToggleMute}
+          vrActive={isInVR}
+        />
+      )}
+
       {/* Diegetic Strictness: 2D Screen Overlays are ONLY rendered in desktop simulator mode; strictly removed in VR */}
-      {gameStatus !== 'start' && !isInVR && (
+      {gameStatus !== 'start' && gameStatus !== 'training' && !isInVR && (
         <HUDOverlay
           language={language}
           scenarioId={scenarioId}
           gameStatus={gameStatus}
+          difficulty={difficulty}
+          onChangeDifficulty={handleChangeDifficulty}
           timeRemaining={timeRemaining}
           health={health}
           score={score}
@@ -576,8 +914,10 @@ export default function App() {
           onOpenManual={() => setIsManualOpen(true)}
           onRestartScenario={() => initScenario()}
           onReturnToMenu={() => setGameStatus('start')}
+          onOpenTraining={handleStartTraining}
           onTriggerTeamShout={handleTriggerTeamShout}
           lastTeamShout={lastTeamShout}
+          educationalFeedback={educationalFeedback}
           vrActive={isInVR}
         />
       )}
