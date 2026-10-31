@@ -6,6 +6,7 @@
 import React, { useMemo, useState, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { Interactive } from '@react-three/xr';
 import { Language } from '../types/game';
 
 interface SplashHero3DProps {
@@ -45,19 +46,9 @@ export const SplashHero3D: React.FC<SplashHero3DProps> = ({
     canvas.height = 512;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      // Solid pitch black / dark obsidian backing
-      ctx.fillStyle = '#020612';
+      // 1. Strict pitch black backing (#000000)
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, 1536, 512);
-
-      // Subtle cyber grid
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.08)';
-      ctx.lineWidth = 1;
-      for (let x = 32; x < 1536; x += 32) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, 512);
-        ctx.stroke();
-      }
 
       // Outer vibrant neon border
       ctx.strokeStyle = '#00f0ff';
@@ -80,8 +71,8 @@ export const SplashHero3D: React.FC<SplashHero3DProps> = ({
       const fontFamily = isArabic ? '"Cairo", sans-serif' : '"JetBrains Mono", monospace';
 
       // Kicker Header
-      ctx.font = `bold 24px ${fontFamily}`;
-      ctx.fillStyle = '#10b981';
+      ctx.font = `900 24px ${fontFamily}`;
+      ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
       const kickerText = isArabic
         ? '◄ نظام الدفاع السيبراني التفاعلي // الإصدار 3.0 WebXR ►'
@@ -99,30 +90,30 @@ export const SplashHero3D: React.FC<SplashHero3DProps> = ({
       ctx.shadowBlur = 0; // reset shadow
 
       // Sub-description
-      ctx.font = `bold 26px ${fontFamily}`;
-      ctx.fillStyle = '#cbd5e1';
+      ctx.font = `900 26px ${fontFamily}`;
+      ctx.fillStyle = '#ffffff';
       const descText = isArabic
         ? 'محاكاة تدريبية احترافية ثلاثية الأبعاد لفرق الأمن السيبراني والواقع الافتراضي'
         : 'Professional WebXR Incident Response & Cyber Security Simulation';
       ctx.fillText(descText, 768, 252);
 
-      // Security Badges Line (High Contrast Amber Gold)
+      // Security Badges Line (Pure High Contrast White)
       ctx.font = `900 22px ${fontFamily}`;
-      ctx.fillStyle = '#fbbf24';
+      ctx.fillStyle = '#ffffff';
       const badgeText = isArabic
         ? '✦ وضع التصويب والليزر  ·  ✦ دعم الواقع الافتراضي Quest 3  ·  ✦ واجهة عربية كاملة'
         : '✦ WEAPONIZED LASER PROTOCOLS  ·  ✦ META QUEST 3 OPTIMIZED  ·  ✦ FULL ARABIC / ENGLISH';
       ctx.fillText(badgeText, 768, 318);
 
       // System Status Box
-      ctx.fillStyle = '#090e1f';
+      ctx.fillStyle = '#000000';
       ctx.fillRect(48, 370, 1440, 88);
       ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 2;
       ctx.strokeRect(48, 370, 1440, 88);
 
       ctx.font = `900 24px ${fontFamily}`;
-      ctx.fillStyle = '#38bdf8';
+      ctx.fillStyle = '#ffffff';
       const specText = isArabic
         ? 'حالة النظام: الاتصال نشط  ·  بوابة الزمن الافتراضية: جاهزة للقفز الفوري'
         : 'SYSTEM STATUS: OPERATIONAL  ·  QUANTUM TIME TUNNEL: ONLINE';
@@ -140,8 +131,8 @@ export const SplashHero3D: React.FC<SplashHero3DProps> = ({
     canvas.height = 160;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      // Solid dark navy background
-      ctx.fillStyle = '#041628';
+      // Solid pitch black background
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, 640, 160);
 
       // Thick Neon Frame
@@ -167,8 +158,8 @@ export const SplashHero3D: React.FC<SplashHero3DProps> = ({
       const ctaLabel = isArabic ? '⚡ بدء الدفاع والقفز بالزمن' : '⚡ INITIALIZE DEFENSE';
       ctx.fillText(ctaLabel, 320, 75);
 
-      ctx.font = `bold 18px ${fontFamily}`;
-      ctx.fillStyle = '#38bdf8';
+      ctx.font = `900 18px ${fontFamily}`;
+      ctx.fillStyle = '#ffffff';
       const subLabel = isArabic ? 'انقر أو صوّب الليزر للدخول' : 'CLICK OR SHOOT TO WARP';
       ctx.fillText(subLabel, 320, 120);
     }
@@ -177,17 +168,17 @@ export const SplashHero3D: React.FC<SplashHero3DProps> = ({
     return texture;
   }, [isArabic]);
 
-  // 3. Secondary "Incident Rulebook" Texture (High Contrast Amber-Navy)
+  // 3. Secondary "Incident Rulebook" Texture (High Contrast Pitch Black)
   const manualTexture = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 480;
     canvas.height = 140;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.fillStyle = '#181105';
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, 480, 140);
 
-      ctx.strokeStyle = '#f59e0b';
+      ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 5;
       ctx.strokeRect(6, 6, 468, 128);
 
@@ -198,8 +189,8 @@ export const SplashHero3D: React.FC<SplashHero3DProps> = ({
       const label = isArabic ? '📖 دليل الحوادث السيبرانية' : '📖 INCIDENT RULEBOOK';
       ctx.fillText(label, 240, 65);
 
-      ctx.font = `bold 18px ${fontFamily}`;
-      ctx.fillStyle = '#fbbf24';
+      ctx.font = `900 18px ${fontFamily}`;
+      ctx.fillStyle = '#ffffff';
       const sub = isArabic ? 'دليل فريق الطاولة الورقي' : 'PHYSICAL TABLE MANUAL';
       ctx.fillText(sub, 240, 105);
     }
@@ -208,17 +199,17 @@ export const SplashHero3D: React.FC<SplashHero3DProps> = ({
     return texture;
   }, [isArabic]);
 
-  // 4. Language Switcher [ العربية | English ] Texture (High Contrast Emerald-Navy)
+  // 4. Language Switcher [ العربية | English ] Texture
   const langTexture = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 440;
     canvas.height = 120;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.fillStyle = '#041c17';
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, 440, 120);
 
-      ctx.strokeStyle = '#10b981';
+      ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 5;
       ctx.strokeRect(6, 6, 428, 108);
 
@@ -227,14 +218,14 @@ export const SplashHero3D: React.FC<SplashHero3DProps> = ({
       ctx.textAlign = 'center';
 
       if (isArabic) {
-        ctx.fillStyle = '#10b981';
+        ctx.fillStyle = '#ffffff';
         ctx.fillText('● العربية (AR)', 130, 68);
-        ctx.fillStyle = '#94a3b8';
+        ctx.fillStyle = '#ffffff';
         ctx.fillText('English (EN)', 300, 68);
       } else {
-        ctx.fillStyle = '#94a3b8';
+        ctx.fillStyle = '#ffffff';
         ctx.fillText('العربية (AR)', 130, 68);
-        ctx.fillStyle = '#10b981';
+        ctx.fillStyle = '#ffffff';
         ctx.fillText('● English (EN)', 300, 68);
       }
     }
@@ -243,17 +234,17 @@ export const SplashHero3D: React.FC<SplashHero3DProps> = ({
     return texture;
   }, [isArabic]);
 
-  // 5. Training Simulation Button Texture (High Contrast Indigo-Navy)
+  // 5. Training Simulation Button Texture
   const trainingTexture = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 640;
     canvas.height = 140;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.fillStyle = '#090e26';
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, 640, 140);
 
-      ctx.strokeStyle = '#6366f1';
+      ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 5;
       ctx.strokeRect(6, 6, 628, 128);
 
@@ -264,8 +255,8 @@ export const SplashHero3D: React.FC<SplashHero3DProps> = ({
       const label = isArabic ? '🎓 محاكاة التدريب ومعايرة الليزر' : '🎓 TRAINING SIMULATION & CALIBRATION';
       ctx.fillText(label, 320, 65);
 
-      ctx.font = `bold 18px ${fontFamily}`;
-      ctx.fillStyle = '#a5b4fc';
+      ctx.font = `900 18px ${fontFamily}`;
+      ctx.fillStyle = '#ffffff';
       const sub = isArabic ? 'أطلق للبدء الفوري بالتدريب' : 'SHOOT TO START CALIBRATION';
       ctx.fillText(sub, 320, 105);
     }
@@ -292,99 +283,154 @@ export const SplashHero3D: React.FC<SplashHero3DProps> = ({
 
   return (
     <group position={[0, 0, 0]}>
-      {/* 1. Main Title Card (Y: +2.85m, Z: -4.5m) */}
-      <mesh ref={titleMeshRef} position={[0, 2.85, -4.5]}>
+      {/* 1. Main Title Card (Y: +2.7m, Z: -4.0m) */}
+      <mesh ref={titleMeshRef} position={[0, 2.7, -4.0]} renderOrder={1}>
         <planeGeometry args={[4.2, 1.4]} />
-        <meshBasicMaterial map={titleTexture} toneMapped={false} />
+        <meshBasicMaterial map={titleTexture} toneMapped={false} depthWrite={false} />
       </mesh>
 
-      {/* 2. Primary Button: "INITIALIZE DEFENSE" (Y: +1.4m, Z: -3.8m) */}
-      <group position={[0, 1.4, -3.8]}>
-        <mesh
-          ref={ctaMeshRef}
-          onClick={onInitializeDefense}
-          onPointerOver={() => setHoveredButton('initialize')}
-          onPointerOut={() => setHoveredButton(null)}
-        >
-          <planeGeometry args={[2.5, 0.65]} />
-          <meshBasicMaterial map={ctaTexture} toneMapped={false} />
-        </mesh>
-        {(hoveredButton === 'initialize' || lockedTargetId === 'init_defense') && (
-          <mesh position={[0, 0, 0.01]}>
-            <planeGeometry args={[2.56, 0.71]} />
-            <meshBasicMaterial color="#00f0ff" wireframe toneMapped={false} />
-          </mesh>
-        )}
-      </group>
-
-      {/* 3. Secondary Button: "Incident Rulebook" (Y: +0.85m, X: -1.25m, Z: -3.8m) */}
-      <group
-        position={[-1.25, 0.85, -3.8]}
-        scale={hoveredButton === 'manual' || lockedTargetId === 'manual' ? [1.12, 1.12, 1] : [1, 1, 1]}
+      {/* 2. Primary Button: "INITIALIZE DEFENSE" (Y: +1.5m, Z: -4.0m) */}
+      <Interactive
+        onSelect={onInitializeDefense}
+        onHover={() => setHoveredButton('initialize')}
+        onBlur={() => setHoveredButton(null)}
       >
-        <mesh
-          onClick={onOpenManual}
-          onPointerOver={() => setHoveredButton('manual')}
-          onPointerOut={() => setHoveredButton(null)}
+        <group
+          position={[0, 1.5, -4.0]}
+          scale={hoveredButton === 'initialize' || lockedTargetId === 'btn-init-defense' ? [1.05, 1.05, 1] : [1, 1, 1]}
         >
-          <planeGeometry args={[1.8, 0.52]} />
-          <meshBasicMaterial map={manualTexture} toneMapped={false} />
-        </mesh>
-        {(hoveredButton === 'manual' || lockedTargetId === 'manual') && (
-          <mesh position={[0, 0, 0.01]}>
-            <planeGeometry args={[1.86, 0.58]} />
-            <meshBasicMaterial color="#f59e0b" wireframe toneMapped={false} />
+          <mesh renderOrder={0}>
+            <boxGeometry args={[2.52, 0.67, 0.04]} />
+            <meshBasicMaterial color="#000000" />
           </mesh>
-        )}
-      </group>
+          <mesh
+            ref={ctaMeshRef}
+            position={[0, 0, 0.025]}
+            renderOrder={1}
+            onClick={onInitializeDefense}
+            onPointerDown={onInitializeDefense}
+            onPointerEnter={() => setHoveredButton('initialize')}
+            onPointerLeave={() => setHoveredButton(null)}
+          >
+            <planeGeometry args={[2.5, 0.65]} />
+            <meshBasicMaterial map={ctaTexture} toneMapped={false} depthWrite={false} />
+          </mesh>
+          {(hoveredButton === 'initialize' || lockedTargetId === 'btn-init-defense') && (
+            <mesh position={[0, 0, 0.03]} renderOrder={2}>
+              <planeGeometry args={[2.56, 0.71]} />
+              <meshBasicMaterial color="#00f0ff" wireframe toneMapped={false} depthWrite={false} />
+            </mesh>
+          )}
+        </group>
+      </Interactive>
 
-      {/* 4. Language Selector Toggle (Y: +0.85m, X: +1.25m, Z: -3.8m) */}
-      <group
-        position={[1.25, 0.85, -3.8]}
-        scale={hoveredButton === 'lang' || lockedTargetId === 'lang_toggle' ? [1.12, 1.12, 1] : [1, 1, 1]}
+      {/* 3. Secondary Button: "Incident Rulebook" (Y: +0.85m, X: -1.3m, Z: -3.8m) */}
+      <Interactive
+        onSelect={onOpenManual}
+        onHover={() => setHoveredButton('manual')}
+        onBlur={() => setHoveredButton(null)}
       >
-        <mesh
-          onClick={onToggleLanguage}
-          onPointerOver={() => setHoveredButton('lang')}
-          onPointerOut={() => setHoveredButton(null)}
+        <group
+          position={[-1.3, 0.85, -3.8]}
+          scale={hoveredButton === 'manual' || lockedTargetId === 'btn-manual' ? [1.05, 1.05, 1] : [1, 1, 1]}
         >
-          <planeGeometry args={[1.7, 0.52]} />
-          <meshBasicMaterial map={langTexture} toneMapped={false} />
-        </mesh>
-        {(hoveredButton === 'lang' || lockedTargetId === 'lang_toggle') && (
-          <mesh position={[0, 0, 0.01]}>
-            <planeGeometry args={[1.76, 0.58]} />
-            <meshBasicMaterial color="#10b981" wireframe toneMapped={false} />
+          <mesh renderOrder={0}>
+            <boxGeometry args={[1.82, 0.54, 0.04]} />
+            <meshBasicMaterial color="#000000" />
           </mesh>
-        )}
-      </group>
+          <mesh
+            position={[0, 0, 0.025]}
+            renderOrder={1}
+            onClick={onOpenManual}
+            onPointerDown={onOpenManual}
+            onPointerEnter={() => setHoveredButton('manual')}
+            onPointerLeave={() => setHoveredButton(null)}
+          >
+            <planeGeometry args={[1.8, 0.52]} />
+            <meshBasicMaterial map={manualTexture} toneMapped={false} depthWrite={false} />
+          </mesh>
+          {(hoveredButton === 'manual' || lockedTargetId === 'btn-manual') && (
+            <mesh position={[0, 0, 0.03]} renderOrder={2}>
+              <planeGeometry args={[1.86, 0.58]} />
+              <meshBasicMaterial color="#00f0ff" wireframe toneMapped={false} depthWrite={false} />
+            </mesh>
+          )}
+        </group>
+      </Interactive>
+
+      {/* 4. Language Selector Toggle (Y: +0.85m, X: +1.3m, Z: -3.8m) */}
+      <Interactive
+        onSelect={onToggleLanguage}
+        onHover={() => setHoveredButton('lang')}
+        onBlur={() => setHoveredButton(null)}
+      >
+        <group
+          position={[1.3, 0.85, -3.8]}
+          scale={hoveredButton === 'lang' || lockedTargetId === 'btn-lang' ? [1.05, 1.05, 1] : [1, 1, 1]}
+        >
+          <mesh renderOrder={0}>
+            <boxGeometry args={[1.72, 0.54, 0.04]} />
+            <meshBasicMaterial color="#000000" />
+          </mesh>
+          <mesh
+            position={[0, 0, 0.025]}
+            renderOrder={1}
+            onClick={onToggleLanguage}
+            onPointerDown={onToggleLanguage}
+            onPointerEnter={() => setHoveredButton('lang')}
+            onPointerLeave={() => setHoveredButton(null)}
+          >
+            <planeGeometry args={[1.7, 0.52]} />
+            <meshBasicMaterial map={langTexture} toneMapped={false} depthWrite={false} />
+          </mesh>
+          {(hoveredButton === 'lang' || lockedTargetId === 'btn-lang') && (
+            <mesh position={[0, 0, 0.03]} renderOrder={2}>
+              <planeGeometry args={[1.76, 0.58]} />
+              <meshBasicMaterial color="#00f0ff" wireframe toneMapped={false} depthWrite={false} />
+            </mesh>
+          )}
+        </group>
+      </Interactive>
 
       {/* 5. Training Simulation Button (Y: +0.25m, Z: -3.8m) */}
-      <group
-        position={[0, 0.25, -3.8]}
-        scale={hoveredButton === 'training' || lockedTargetId === 'training' ? [1.12, 1.12, 1] : [1, 1, 1]}
+      <Interactive
+        onSelect={onStartTraining}
+        onHover={() => setHoveredButton('training')}
+        onBlur={() => setHoveredButton(null)}
       >
-        <mesh
-          onClick={onStartTraining}
-          onPointerOver={() => setHoveredButton('training')}
-          onPointerOut={() => setHoveredButton(null)}
+        <group
+          position={[0, 0.25, -3.8]}
+          scale={hoveredButton === 'training' || lockedTargetId === 'btn-training' ? [1.05, 1.05, 1] : [1, 1, 1]}
         >
-          <planeGeometry args={[2.5, 0.52]} />
-          <meshBasicMaterial map={trainingTexture} toneMapped={false} />
-        </mesh>
-        {(hoveredButton === 'training' || lockedTargetId === 'training') && (
-          <mesh position={[0, 0, 0.01]}>
-            <planeGeometry args={[2.56, 0.58]} />
-            <meshBasicMaterial color="#6366f1" wireframe toneMapped={false} />
+          <mesh renderOrder={0}>
+            <boxGeometry args={[2.52, 0.54, 0.04]} />
+            <meshBasicMaterial color="#000000" />
           </mesh>
-        )}
-      </group>
+          <mesh
+            position={[0, 0, 0.025]}
+            renderOrder={1}
+            onClick={onStartTraining}
+            onPointerDown={onStartTraining}
+            onPointerEnter={() => setHoveredButton('training')}
+            onPointerLeave={() => setHoveredButton(null)}
+          >
+            <planeGeometry args={[2.5, 0.52]} />
+            <meshBasicMaterial map={trainingTexture} toneMapped={false} depthWrite={false} />
+          </mesh>
+          {(hoveredButton === 'training' || lockedTargetId === 'btn-training') && (
+            <mesh position={[0, 0, 0.03]} renderOrder={2}>
+              <planeGeometry args={[2.56, 0.58]} />
+              <meshBasicMaterial color="#00f0ff" wireframe toneMapped={false} depthWrite={false} />
+            </mesh>
+          )}
+        </group>
+      </Interactive>
 
       {/* Subtle Atmospheric Accent Lights (Controlled intensities) */}
-      <pointLight position={[0, 1.4, -3.5]} intensity={1.2} color="#00f0ff" distance={4} />
-      <pointLight position={[-1.25, 0.85, -3.5]} intensity={0.9} color="#f59e0b" distance={3.5} />
-      <pointLight position={[1.25, 0.85, -3.5]} intensity={0.9} color="#10b981" distance={3.5} />
-      <pointLight position={[0, 0.25, -3.5]} intensity={0.9} color="#6366f1" distance={3.5} />
+      <pointLight position={[0, 1.5, -3.6]} intensity={1.2} color="#00f0ff" distance={4} />
+      <pointLight position={[-1.3, 0.85, -3.6]} intensity={0.9} color="#00f0ff" distance={3.5} />
+      <pointLight position={[1.3, 0.85, -3.6]} intensity={0.9} color="#00f0ff" distance={3.5} />
+      <pointLight position={[0, 0.25, -3.6]} intensity={0.9} color="#00f0ff" distance={3.5} />
     </group>
   );
 };

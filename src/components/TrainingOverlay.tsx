@@ -136,55 +136,55 @@ export const TrainingOverlay: React.FC<TrainingOverlayProps> = ({
       style={{ fontFamily: isArabic ? "'Cairo', sans-serif" : "'JetBrains Mono', monospace" }}
     >
       {/* COMPACT TOP HUD BANNER (<10% Viewport Height) */}
-      <div className="pointer-events-auto w-full max-w-4xl mx-auto p-3 px-5 rounded-2xl bg-[#020611]/90 border border-cyan-500/60 backdrop-blur-xl shadow-[0_0_30px_rgba(0,240,255,0.2)] flex items-center justify-between gap-4 text-slate-100 relative overflow-hidden">
+      <div className="pointer-events-auto w-full max-w-4xl mx-auto p-3 px-5 rounded-2xl bg-[#000000] border-2 border-[#00f0ff] shadow-[0_0_25px_rgba(0,240,255,0.4)] flex items-center justify-between gap-4 text-[#ffffff] relative overflow-hidden">
         {/* Subtle Scanline Texture */}
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(0,240,255,0.03)_1px,transparent_1px)] bg-[size:100%_4px] opacity-40" />
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(0,240,255,0.06)_1px,transparent_1px)] bg-[size:100%_4px] opacity-40" />
 
         {/* Left: Step Badge & Instruction */}
         <div className="flex items-center gap-3 relative z-10">
-          <div className="p-2 rounded-xl bg-[#030d22] border border-cyan-400 text-cyan-300 shrink-0 shadow-[0_0_10px_rgba(0,240,255,0.3)]">
+          <div className="p-2 rounded-xl bg-[#000000] border-2 border-[#00f0ff] text-[#00f0ff] shrink-0 shadow-[0_0_15px_rgba(0,240,255,0.4)]">
             <Crosshair className="w-5 h-5 animate-pulse" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-500/50 shadow-[0_0_8px_rgba(52,211,153,0.3)]">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#ffffff] px-2 py-0.5 rounded bg-[#000000] border border-[#00f0ff] shadow-[0_0_8px_rgba(0,240,255,0.3)]">
                 {isArabic ? `تمرين ${currentStep.num} من 3` : `STEP ${currentStep.num} / 3`}
               </span>
-              <span className="text-xs font-black tracking-wide text-cyan-300">
+              <span className="text-xs font-black tracking-wide text-[#00f0ff]">
                 {isArabic ? currentStep.titleAr : currentStep.titleEn}
               </span>
             </div>
-            <p className="text-xs text-white font-extrabold mt-0.5 leading-tight">
+            <p className="text-xs text-[#ffffff] font-black mt-0.5 leading-tight">
               {isArabic ? currentStep.instructionAr : currentStep.instructionEn}
             </p>
           </div>
         </div>
 
         {/* Center: Live Task Progress Badges */}
-        <div className="hidden md:flex items-center gap-2 text-xs font-bold shrink-0 relative z-10">
+        <div className="hidden md:flex items-center gap-2 text-xs font-black shrink-0 relative z-10">
           {(step === 'welcome' || step === 'blaster_basics') && (
             <>
-              <span className={`px-2.5 py-1 rounded-xl border flex items-center gap-1.5 transition-all ${rightFired ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500 shadow-[0_0_10px_rgba(52,211,153,0.4)]' : 'bg-[#030d22] text-slate-400 border-slate-700'}`}>
-                {rightFired ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <Circle className="w-3.5 h-3.5 text-slate-500" />}
+              <span className={`px-2.5 py-1 rounded-xl border-2 flex items-center gap-1.5 transition-all ${rightFired ? 'bg-[#000000] text-[#ffffff] border-[#00f0ff] shadow-[0_0_12px_rgba(0,240,255,0.5)]' : 'bg-[#000000] text-slate-400 border-slate-700'}`}>
+                {rightFired ? <CheckCircle2 className="w-3.5 h-3.5 text-[#00f0ff]" /> : <Circle className="w-3.5 h-3.5 text-slate-500" />}
                 <span>{isArabic ? 'السلاح الأيمن' : 'Right Blaster'}</span>
               </span>
-              <span className={`px-2.5 py-1 rounded-xl border flex items-center gap-1.5 transition-all ${leftFired ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500 shadow-[0_0_10px_rgba(52,211,153,0.4)]' : 'bg-[#030d22] text-slate-400 border-slate-700'}`}>
-                {leftFired ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <Circle className="w-3.5 h-3.5 text-slate-500" />}
+              <span className={`px-2.5 py-1 rounded-xl border-2 flex items-center gap-1.5 transition-all ${leftFired ? 'bg-[#000000] text-[#ffffff] border-[#00f0ff] shadow-[0_0_12px_rgba(0,240,255,0.5)]' : 'bg-[#000000] text-slate-400 border-slate-700'}`}>
+                {leftFired ? <CheckCircle2 className="w-3.5 h-3.5 text-[#00f0ff]" /> : <Circle className="w-3.5 h-3.5 text-slate-500" />}
                 <span>{isArabic ? 'السلاح الأيسر' : 'Left Blaster'}</span>
               </span>
             </>
           )}
 
           {(step === 'target_lock' || step === 'scenario_firewall' || step === 'scenario_payload') && (
-            <span className={`px-2.5 py-1 rounded-xl border flex items-center gap-1.5 transition-all ${shotTargets.length > 0 ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500 shadow-[0_0_10px_rgba(52,211,153,0.4)]' : 'bg-[#030d22] text-amber-300 border-amber-500/60 shadow-[0_0_10px_rgba(245,158,11,0.3)] animate-pulse'}`}>
-              <Target className="w-3.5 h-3.5 text-cyan-400" />
+            <span className={`px-2.5 py-1 rounded-xl border-2 flex items-center gap-1.5 transition-all ${shotTargets.length > 0 ? 'bg-[#000000] text-[#ffffff] border-[#00f0ff] shadow-[0_0_12px_rgba(0,240,255,0.5)]' : 'bg-[#000000] text-[#ffffff] border-[#00f0ff] shadow-[0_0_10px_rgba(0,240,255,0.3)] animate-pulse'}`}>
+              <Target className="w-3.5 h-3.5 text-[#00f0ff]" />
               <span>{shotTargets.length > 0 ? (isArabic ? 'تم القفل والإصابة ✓' : 'TARGET SHOT ✓') : (isArabic ? 'صوّب على الهدف' : 'AIM & SHOOT')}</span>
             </span>
           )}
 
           {(step === 'scenario_ddos' || step === 'graduation') && (
-            <span className="px-2.5 py-1 rounded-xl bg-emerald-950/90 text-emerald-300 border border-emerald-500 flex items-center gap-1.5 shadow-[0_0_15px_rgba(52,211,153,0.5)]">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="px-2.5 py-1 rounded-xl bg-[#000000] text-[#ffffff] border-2 border-[#00f0ff] flex items-center gap-1.5 shadow-[0_0_15px_rgba(0,240,255,0.5)]">
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#00f0ff]" />
               <span>{isArabic ? 'اكتمل التدريب!' : 'TRAINING COMPLETE!'}</span>
             </span>
           )}
@@ -194,24 +194,24 @@ export const TrainingOverlay: React.FC<TrainingOverlayProps> = ({
         <div className="flex items-center gap-2 shrink-0 relative z-10">
           <button
             onClick={onOpenManual}
-            className="p-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/50 text-xs font-black transition-all cursor-pointer shadow-sm"
+            className="p-2 rounded-xl bg-[#000000] hover:bg-[#00f0ff]/20 text-[#ffffff] border-2 border-[#00f0ff] text-xs font-black transition-all cursor-pointer shadow-[0_0_10px_rgba(0,240,255,0.3)]"
             title="Rulebook"
           >
-            <BookOpen className="w-4 h-4 text-amber-400" />
+            <BookOpen className="w-4 h-4 text-[#00f0ff]" />
           </button>
 
           <button
             onClick={onToggleMute}
-            className="p-2 rounded-xl bg-[#030d22] border border-slate-700 text-slate-300 hover:text-cyan-400 transition-all cursor-pointer shadow-sm"
+            className="p-2 rounded-xl bg-[#000000] border-2 border-[#00f0ff] text-[#ffffff] hover:text-[#00f0ff] transition-all cursor-pointer shadow-[0_0_10px_rgba(0,240,255,0.3)]"
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4" />}
           </button>
 
           <button
             onClick={onStartMainGame}
-            className="px-4.5 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 font-black text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-[0_0_20px_rgba(245,158,11,0.6)] transform hover:scale-105 active:scale-95"
+            className="px-4.5 py-2 rounded-xl bg-[#000000] hover:bg-[#00f0ff]/25 text-[#ffffff] border-2 border-[#00f0ff] font-black text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-[0_0_20px_rgba(0,240,255,0.5)] transform hover:scale-105 active:scale-95"
           >
-            <Play className="w-3.5 h-3.5 fill-slate-950" />
+            <Play className="w-3.5 h-3.5 fill-[#00f0ff] text-[#00f0ff]" />
             <span>{isArabic ? 'الانطلاق' : 'Launch'}</span>
           </button>
         </div>

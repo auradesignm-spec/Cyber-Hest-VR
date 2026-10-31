@@ -35,28 +35,11 @@ function useDeviceStatusTexture(
     const ctx = canvas.getContext('2d');
 
     if (ctx) {
-      // Solid dark obsidian background (Zero translucency for perfect contrast)
-      ctx.fillStyle = '#020611';
+      // Solid dark pitch black background (#000000)
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, 1024, 512);
 
-      // Fine cyber grid watermark
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.08)';
-      ctx.lineWidth = 1;
-      for (let x = 32; x < 1024; x += 32) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, 512);
-        ctx.stroke();
-      }
-      for (let y = 32; y < 512; y += 32) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(1024, y);
-        ctx.stroke();
-      }
-
-      const isUnderAttack = combatPhase === 'defense';
-      const frameColor = isUnderAttack ? '#ef4444' : '#00f0ff';
+      const frameColor = '#00f0ff';
 
       // Outer Glowing Frame
       ctx.strokeStyle = frameColor;
@@ -87,27 +70,27 @@ function useDeviceStatusTexture(
         ? '◄ محطة العمل المستهدفة (WORKSTATION PC TOWER) ►'
         : '◄ TARGET WORKSTATION PC [DEFENDER-NODE-01] ►';
 
-      ctx.fillStyle = '#0f172a';
+      ctx.fillStyle = '#000000';
       ctx.fillRect(48, 36, 928, 56);
       ctx.strokeStyle = frameColor;
       ctx.lineWidth = 2;
       ctx.strokeRect(48, 36, 928, 56);
 
       ctx.fillStyle = '#ffffff';
-      ctx.font = `bold 28px ${fontFamily}`;
+      ctx.font = `900 28px ${fontFamily}`;
       ctx.textAlign = 'center';
       ctx.fillText(deviceTitle, 512, 75);
 
       // Primary Status Alert
       ctx.font = `900 38px ${fontFamily}`;
+      ctx.fillStyle = '#ffffff';
+      const isUnderAttack = combatPhase === 'defense';
       if (isUnderAttack) {
-        ctx.fillStyle = '#ef4444';
         const alertMsg = isArabic
           ? '⚠ إنذار! هجوم حزم خبيثة نشط — أطلق لحماية الجهاز! ⚠'
           : '⚠ DEFEND ASSET: INCOMING MALWARE PACKET SWARM! ⚠';
         ctx.fillText(alertMsg, 512, 160);
       } else {
-        ctx.fillStyle = '#10b981';
         const secureMsg = isArabic
           ? '🛡 درع الجهاز نشط — أجب على التساؤل لفك التشفير'
           : '🛡 NODE INTEGRITY STABLE — SOLVE DECRYPTION TO PROCEED';
@@ -116,20 +99,20 @@ function useDeviceStatusTexture(
 
       // Live Network Stats Row
       ctx.fillStyle = '#ffffff';
-      ctx.font = `bold 26px ${fontFamily}`;
+      ctx.font = `900 26px ${fontFamily}`;
       const ipText = isRouter ? 'IP: 192.168.1.1  ·  PORT: 443 / 80  ·  VLAN: 10' : 'IP: 10.0.4.52  ·  CPU LOAD: 74%  ·  SEC-GATE: ON';
       ctx.fillText(ipText, 512, 240);
 
       // Force Shield Bar
       const pct = Math.max(0, Math.min(1, hearts / 5));
-      ctx.fillStyle = '#090f1f';
+      ctx.fillStyle = '#000000';
       ctx.fillRect(96, 310, 832, 54);
       ctx.strokeStyle = frameColor;
       ctx.lineWidth = 3;
       ctx.strokeRect(96, 310, 832, 54);
 
       // Health bar fill
-      ctx.fillStyle = pct > 0.5 ? '#10b981' : pct > 0.25 ? '#f59e0b' : '#ef4444';
+      ctx.fillStyle = '#00f0ff';
       ctx.fillRect(100, 314, (832 - 8) * pct, 46);
 
       // Text Over Shield Bar
@@ -164,12 +147,11 @@ function useTacticalBannerTexture(
     const ctx = canvas.getContext('2d');
 
     if (ctx) {
-      // Solid dark navy background
-      ctx.fillStyle = '#020612';
+      // Solid dark pitch black background
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, 1024, 256);
 
-      const isUnderAttack = combatPhase === 'defense';
-      const frameColor = isUnderAttack ? '#ef4444' : '#00f0ff';
+      const frameColor = '#00f0ff';
 
       // Sharp glowing border
       ctx.strokeStyle = frameColor;
@@ -179,8 +161,8 @@ function useTacticalBannerTexture(
       const fontFamily = isArabic ? '"Cairo", sans-serif' : '"JetBrains Mono", monospace';
 
       // Top Tag
-      ctx.font = `bold 24px ${fontFamily}`;
-      ctx.fillStyle = isUnderAttack ? '#f87171' : '#38bdf8';
+      ctx.font = `900 24px ${fontFamily}`;
+      ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
       const topTag = isArabic
         ? '◄ الهدف الاستراتيجي المطلوب حمايته // عقدة السيرفر ►'
@@ -191,6 +173,7 @@ function useTacticalBannerTexture(
       ctx.font = `900 38px ${fontFamily}`;
       ctx.fillStyle = '#ffffff';
       const isRouter = scenarioId === 'scenario-1' || scenarioId === 'scenario-3';
+      const isUnderAttack = combatPhase === 'defense';
       const titleStr = isRouter
         ? isArabic
           ? (isUnderAttack ? '⚠ راوتر الشبكة يتعرض لهجوم! دافع عنه!' : 'راوتر التوجيه المركزي — متصل وآمن')

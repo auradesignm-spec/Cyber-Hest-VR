@@ -577,6 +577,10 @@ export class SpatialAudioEngine {
   /**
    * 3D Warp Time Tunnel Hyperspace Whoosh (Synthesized noise sweep + sub-bass dive + resonant bandpass)
    */
+  public playWhoosh(reverse = false) {
+    this.playWarpWhoosh(reverse);
+  }
+
   public playWarpWhoosh(reverse = false) {
     if (this.muted) return;
     const ctx = this.initContext();

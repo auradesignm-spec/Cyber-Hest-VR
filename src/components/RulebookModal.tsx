@@ -83,49 +83,49 @@ export const RulebookModal: React.FC<RulebookModalProps> = ({ language, isOpen, 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6 bg-black/90 backdrop-blur-md no-game-shoot overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6 bg-black/95 backdrop-blur-md no-game-shoot overflow-y-auto"
       dir={isArabic ? 'rtl' : 'ltr'}
     >
-      <div className="relative w-full max-w-5xl max-h-[94vh] flex flex-col bg-slate-950 border border-cyan-500/50 rounded-2xl shadow-[0_0_60px_rgba(6,182,212,0.3)] text-slate-100 overflow-hidden">
+      <div className="relative w-full max-w-5xl max-h-[94vh] flex flex-col bg-[#000000] border-2 border-[#00f0ff] rounded-2xl shadow-[0_0_60px_rgba(0,240,255,0.5)] text-[#ffffff] overflow-hidden">
         {/* Header Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-cyan-500/30 bg-slate-900/95">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b-2 border-[#00f0ff] bg-[#000000]">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-cyan-950 border border-cyan-500/60 text-cyan-300 shadow-md">
+            <div className="p-2.5 rounded-xl bg-[#000000] border-2 border-[#00f0ff] text-[#00f0ff] shadow-[0_0_15px_rgba(0,240,255,0.4)]">
               <ShieldAlert className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-xl sm:text-2xl font-black tracking-wider text-cyan-300 uppercase font-mono">
+                <h2 className="text-xl sm:text-2xl font-black tracking-wider text-[#ffffff] uppercase font-mono">
                   {t.title}
                 </h2>
-                <span className="text-xs px-2.5 py-0.5 rounded font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/50">
+                <span className="text-xs px-2.5 py-0.5 rounded font-mono font-black bg-[#000000] text-[#ffffff] border-2 border-[#00f0ff] shadow-[0_0_10px_rgba(0,240,255,0.4)]">
                   {t.docId}
                 </span>
               </div>
-              <p className="text-xs text-slate-400 font-mono mt-0.5">{t.subtitle}</p>
+              <p className="text-xs text-[#ffffff] font-mono font-bold mt-0.5">{t.subtitle}</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/50 text-xs font-mono font-bold transition-all shadow-md cursor-pointer"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#000000] hover:bg-[#00f0ff]/20 text-[#ffffff] border-2 border-[#00f0ff] text-xs font-mono font-black transition-all shadow-[0_0_15px_rgba(0,240,255,0.4)] cursor-pointer"
               title="Print Physical Manual"
             >
-              <Printer className="w-4 h-4" />
+              <Printer className="w-4 h-4 text-[#00f0ff]" />
               <span>{isArabic ? 'طباعة الدليل الورقي' : 'Print Rulebook'}</span>
             </button>
             <button
               onClick={onClose}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all cursor-pointer"
+              className="p-2 rounded-xl bg-[#000000] hover:bg-[#00f0ff]/20 border-2 border-[#00f0ff] text-[#ffffff] transition-all cursor-pointer shadow-[0_0_10px_rgba(0,240,255,0.4)]"
             >
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5 text-[#00f0ff]" />
             </button>
           </div>
         </div>
 
         {/* Search & Filter Tabs Bar */}
-        <div className="px-6 py-3 bg-slate-900/60 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
+        <div className="px-6 py-3 bg-[#000000] border-b-2 border-[#00f0ff] flex flex-wrap items-center justify-between gap-3">
           {/* Quick Filter Tabs */}
           <div className="flex flex-wrap items-center gap-1.5 text-xs font-mono">
             {[
@@ -138,10 +138,10 @@ export const RulebookModal: React.FC<RulebookModalProps> = ({ language, isOpen, 
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as TabType)}
-                className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg font-black transition-all cursor-pointer ${
                   activeTab === tab.id
-                    ? 'bg-cyan-500 text-slate-950 shadow-md'
-                    : 'bg-slate-850 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-750'
+                    ? 'bg-[#00f0ff] text-[#000000] shadow-[0_0_15px_rgba(0,240,255,0.8)] border border-[#00f0ff]'
+                    : 'bg-[#000000] text-[#ffffff] hover:text-[#00f0ff] border border-[#00f0ff]/60'
                 }`}
               >
                 {isArabic ? tab.labelAr : tab.labelEn}
@@ -151,13 +151,13 @@ export const RulebookModal: React.FC<RulebookModalProps> = ({ language, isOpen, 
 
           {/* Search Box */}
           <div className="relative flex items-center">
-            <Search className="w-4 h-4 absolute left-3 text-slate-400" />
+            <Search className="w-4 h-4 absolute left-3 text-[#00f0ff]" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={isArabic ? 'بحث سريع عن رمز، منفذ، لون...' : 'Quick search port, hex, IP...'}
-              className="pl-9 pr-4 py-1.5 text-xs font-mono rounded-lg bg-slate-950 border border-slate-700 text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 w-52 sm:w-64"
+              className="pl-9 pr-4 py-1.5 text-xs font-mono font-bold rounded-lg bg-[#000000] border-2 border-[#00f0ff] text-[#ffffff] placeholder:text-[#ffffff]/60 focus:outline-none focus:border-[#00f0ff] w-52 sm:w-64"
             />
           </div>
         </div>
@@ -165,42 +165,42 @@ export const RulebookModal: React.FC<RulebookModalProps> = ({ language, isOpen, 
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6 text-sm">
           {/* Top Banner Notice */}
-          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs font-mono flex items-start gap-3">
-            <Radio className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <div className="p-3.5 rounded-xl bg-[#000000] border-2 border-[#00f0ff] text-[#ffffff] text-xs font-mono flex items-start gap-3 shadow-[0_0_15px_rgba(0,240,255,0.3)]">
+            <Radio className="w-5 h-5 text-[#00f0ff] shrink-0 mt-0.5" />
             <div>
-              <div className="font-bold uppercase tracking-wider text-amber-300">
+              <div className="font-black uppercase tracking-wider text-[#ffffff]">
                 {t.classification}
               </div>
-              <div className="mt-0.5 text-slate-300 leading-relaxed">{t.rulesSummary}</div>
+              <div className="mt-0.5 text-[#ffffff] font-bold leading-relaxed">{t.rulesSummary}</div>
             </div>
           </div>
 
           {/* PROTOCOL 1: HEX TO PORT */}
           {(activeTab === 'all' || activeTab === 'scenario1') && (
-            <section className="p-5 rounded-2xl bg-slate-900/70 border border-cyan-500/25">
-              <div className="flex items-center gap-2 mb-2 text-cyan-400 font-bold font-mono">
-                <Cpu className="w-5 h-5" />
+            <section className="p-5 rounded-2xl bg-[#000000] border-2 border-[#00f0ff] shadow-[0_0_20px_rgba(0,240,255,0.3)]">
+              <div className="flex items-center gap-2 mb-2 text-[#ffffff] font-black font-mono">
+                <Cpu className="w-5 h-5 text-[#00f0ff]" />
                 <h3 className="text-base">{t.scenario1.title}</h3>
               </div>
-              <p className="text-xs text-slate-300 mb-4">{t.scenario1.instruction}</p>
+              <p className="text-xs text-[#ffffff] font-bold mb-4">{t.scenario1.instruction}</p>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs font-mono border-collapse" dir={isArabic ? 'rtl' : 'ltr'}>
                   <thead>
-                    <tr className="border-b border-cyan-500/40 text-cyan-300 bg-cyan-950/40">
-                      <th className="p-2.5">{t.scenario1.columns[0]}</th>
-                      <th className="p-2.5">{t.scenario1.columns[1]}</th>
-                      <th className="p-2.5">{t.scenario1.columns[2]}</th>
-                      <th className="p-2.5">{t.scenario1.columns[3]}</th>
+                    <tr className="border-b-2 border-[#00f0ff] text-[#ffffff] bg-[#000000]">
+                      <th className="p-2.5 font-black">{t.scenario1.columns[0]}</th>
+                      <th className="p-2.5 font-black">{t.scenario1.columns[1]}</th>
+                      <th className="p-2.5 font-black">{t.scenario1.columns[2]}</th>
+                      <th className="p-2.5 font-black">{t.scenario1.columns[3]}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800 text-slate-200">
+                  <tbody className="divide-y divide-[#00f0ff]/30 text-[#ffffff]">
                     {filteredHexRows.map((row) => (
-                      <tr key={row.hex} className="hover:bg-cyan-500/10 transition-colors">
-                        <td className="p-2.5 text-amber-400 font-bold text-sm">{row.hex}</td>
-                        <td className="p-2.5 text-cyan-300 font-bold text-sm">PORT {row.port}</td>
-                        <td className="p-2.5 text-emerald-400 font-bold">{row.service}</td>
-                        <td className="p-2.5 text-slate-300">{row.description}</td>
+                      <tr key={row.hex} className="hover:bg-[#00f0ff]/10 transition-colors">
+                        <td className="p-2.5 text-[#ffffff] font-black text-sm">{row.hex}</td>
+                        <td className="p-2.5 text-[#ffffff] font-black text-sm">PORT {row.port}</td>
+                        <td className="p-2.5 text-[#ffffff] font-black">{row.service}</td>
+                        <td className="p-2.5 text-[#ffffff] font-bold">{row.description}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -211,25 +211,25 @@ export const RulebookModal: React.FC<RulebookModalProps> = ({ language, isOpen, 
 
           {/* PROTOCOL 2: COLOR SEQUENCE TO SHIELD */}
           {(activeTab === 'all' || activeTab === 'scenario2') && (
-            <section className="p-5 rounded-2xl bg-slate-900/70 border border-pink-500/25">
-              <div className="flex items-center gap-2 mb-2 text-pink-400 font-bold font-mono">
-                <ShieldAlert className="w-5 h-5" />
+            <section className="p-5 rounded-2xl bg-[#000000] border-2 border-[#00f0ff] shadow-[0_0_20px_rgba(0,240,255,0.3)]">
+              <div className="flex items-center gap-2 mb-2 text-[#ffffff] font-black font-mono">
+                <ShieldAlert className="w-5 h-5 text-[#00f0ff]" />
                 <h3 className="text-base">{t.scenario2.title}</h3>
               </div>
-              <p className="text-xs text-slate-300 mb-4">{t.scenario2.instruction}</p>
+              <p className="text-xs text-[#ffffff] font-bold mb-4">{t.scenario2.instruction}</p>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs font-mono border-collapse" dir={isArabic ? 'rtl' : 'ltr'}>
                   <thead>
-                    <tr className="border-b border-pink-500/40 text-pink-300 bg-pink-950/40">
-                      <th className="p-2.5">{t.scenario2.columns[0]}</th>
-                      <th className="p-2.5">{t.scenario2.columns[1]}</th>
-                      <th className="p-2.5">{t.scenario2.columns[2]}</th>
+                    <tr className="border-b-2 border-[#00f0ff] text-[#ffffff] bg-[#000000]">
+                      <th className="p-2.5 font-black">{t.scenario2.columns[0]}</th>
+                      <th className="p-2.5 font-black">{t.scenario2.columns[1]}</th>
+                      <th className="p-2.5 font-black">{t.scenario2.columns[2]}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800 text-slate-200">
+                  <tbody className="divide-y divide-[#00f0ff]/30 text-[#ffffff]">
                     {filteredPayloadRows.map((rule, idx) => (
-                      <tr key={`payload-${idx}`} className="hover:bg-pink-500/10 transition-colors">
+                      <tr key={`payload-${idx}`} className="hover:bg-[#00f0ff]/10 transition-colors">
                         <td className="p-2.5">
                           <div className="flex items-center gap-1.5 uppercase font-bold">
                             {rule.sequence.map((c, i) => (
@@ -256,8 +256,8 @@ export const RulebookModal: React.FC<RulebookModalProps> = ({ language, isOpen, 
                             ))}
                           </div>
                         </td>
-                        <td className="p-2.5 text-red-400 font-bold text-sm">{rule.payloadName}</td>
-                        <td className="p-2.5 text-cyan-300 font-bold uppercase tracking-wider text-sm">
+                        <td className="p-2.5 text-[#ffffff] font-black text-sm">{rule.payloadName}</td>
+                        <td className="p-2.5 text-[#ffffff] font-black uppercase tracking-wider text-sm">
                           {rule.countermeasure} SHIELD
                         </td>
                       </tr>
@@ -270,47 +270,42 @@ export const RulebookModal: React.FC<RulebookModalProps> = ({ language, isOpen, 
 
           {/* PROTOCOL 3: SUBNET ROUTING & BLACKHOLE EMP CORE NODE */}
           {(activeTab === 'all' || activeTab === 'scenario3') && (
-            <section className="p-5 rounded-2xl bg-slate-900/70 border border-emerald-500/25">
-              <div className="flex items-center gap-2 mb-2 text-emerald-400 font-bold font-mono">
-                <Network className="w-5 h-5" />
+            <section className="p-5 rounded-2xl bg-[#000000] border-2 border-[#00f0ff] shadow-[0_0_20px_rgba(0,240,255,0.3)]">
+              <div className="flex items-center gap-2 mb-2 text-[#ffffff] font-black font-mono">
+                <Network className="w-5 h-5 text-[#00f0ff]" />
                 <h3 className="text-base">{t.scenario3.title}</h3>
               </div>
-              <p className="text-xs text-slate-300 mb-4">{t.scenario3.instruction}</p>
+              <p className="text-xs text-[#ffffff] font-bold mb-4">{t.scenario3.instruction}</p>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs font-mono border-collapse" dir={isArabic ? 'rtl' : 'ltr'}>
                   <thead>
-                    <tr className="border-b border-emerald-500/40 text-emerald-300 bg-emerald-950/40">
-                      <th className="p-2.5">{t.scenario3.columns[0]}</th>
-                      <th className="p-2.5">{t.scenario3.columns[1]}</th>
-                      <th className="p-2.5">{t.scenario3.columns[2]}</th>
+                    <tr className="border-b-2 border-[#00f0ff] text-[#ffffff] bg-[#000000]">
+                      <th className="p-2.5 font-black">{t.scenario3.columns[0]}</th>
+                      <th className="p-2.5 font-black">{t.scenario3.columns[1]}</th>
+                      <th className="p-2.5 font-black">{t.scenario3.columns[2]}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800 text-slate-200">
+                  <tbody className="divide-y divide-[#00f0ff]/30 text-[#ffffff]">
                     {filteredSubnetRows.map((sub, idx) => {
                       const nodeTarget = sub.targetNodeId;
-                      const badgeColor =
-                        nodeTarget === 'ALPHA' ? '#38bdf8' : nodeTarget === 'BETA' ? '#ec4899' : '#10b981';
                       const nodeLabel =
                         isArabic
                           ? nodeTarget === 'ALPHA'
-                            ? 'أطلق على العقدة ألفا (السماوية)'
+                            ? 'أطلق على العقدة ألفا'
                             : nodeTarget === 'BETA'
-                            ? 'أطلق على العقدة بيتا (الوردية)'
-                            : 'أطلق على العقدة جاما (الخضراء)'
+                            ? 'أطلق على العقدة بيتا'
+                            : 'أطلق على العقدة جاما'
                           : `SHOOT NODE ${nodeTarget}`;
 
                       return (
-                        <tr key={`subnet-${idx}`} className="hover:bg-emerald-500/10 transition-colors">
-                          <td className="p-2.5 text-amber-400 font-bold text-sm">
+                        <tr key={`subnet-${idx}`} className="hover:bg-[#00f0ff]/10 transition-colors">
+                          <td className="p-2.5 text-[#ffffff] font-black text-sm">
                             {sub.prefix}x
                           </td>
-                          <td className="p-2.5 text-slate-300 font-medium">{sub.cidr} ({sub.subnetName})</td>
+                          <td className="p-2.5 text-[#ffffff] font-bold">{sub.cidr} ({sub.subnetName})</td>
                           <td className="p-2.5">
-                            <span
-                              className="px-3 py-1.5 rounded-lg text-xs font-mono text-slate-950 font-black shadow-md inline-flex items-center gap-1.5"
-                              style={{ backgroundColor: badgeColor }}
-                            >
+                            <span className="px-3 py-1.5 rounded-lg text-xs font-mono bg-[#000000] border-2 border-[#00f0ff] text-[#ffffff] font-black shadow-[0_0_10px_rgba(0,240,255,0.4)] inline-flex items-center gap-1.5">
                               {nodeLabel}
                             </span>
                           </td>
@@ -325,22 +320,22 @@ export const RulebookModal: React.FC<RulebookModalProps> = ({ language, isOpen, 
 
           {/* RADIO PROTOCOL & TACTICAL CALLOUTS */}
           {(activeTab === 'all' || activeTab === 'radio') && (
-            <section className="p-5 rounded-2xl bg-slate-900/70 border border-amber-500/25">
-              <div className="flex items-center gap-2 mb-2 text-amber-400 font-bold font-mono">
-                <Radio className="w-5 h-5" />
+            <section className="p-5 rounded-2xl bg-[#000000] border-2 border-[#00f0ff] shadow-[0_0_20px_rgba(0,240,255,0.3)]">
+              <div className="flex items-center gap-2 mb-2 text-[#ffffff] font-black font-mono">
+                <Radio className="w-5 h-5 text-[#00f0ff]" />
                 <h3 className="text-base">{t.phonetic.title}</h3>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono mt-3">
-                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-cyan-300">
+                <div className="p-3 rounded-xl bg-[#000000] border-2 border-[#00f0ff] text-[#ffffff] font-black">
                   {t.phonetic.alpha}
                 </div>
-                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-pink-300">
+                <div className="p-3 rounded-xl bg-[#000000] border-2 border-[#00f0ff] text-[#ffffff] font-black">
                   {t.phonetic.beta}
                 </div>
-                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-emerald-300">
+                <div className="p-3 rounded-xl bg-[#000000] border-2 border-[#00f0ff] text-[#ffffff] font-black">
                   {t.phonetic.gamma}
                 </div>
-                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-amber-300">
+                <div className="p-3 rounded-xl bg-[#000000] border-2 border-[#00f0ff] text-[#ffffff] font-black">
                   {t.phonetic.delta}
                 </div>
               </div>
@@ -349,11 +344,11 @@ export const RulebookModal: React.FC<RulebookModalProps> = ({ language, isOpen, 
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-slate-900/90 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400 font-mono">
+        <div className="px-6 py-4 bg-[#000000] border-t-2 border-[#00f0ff] flex items-center justify-between text-xs text-[#ffffff] font-mono font-bold">
           <span>{isArabic ? 'عملية حامي العقد السيبرانية // وضع تدريب فرق الطوارئ' : 'Operation Node Defender // IT Incident Response Simulation'}</span>
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-md"
+            className="px-6 py-2.5 rounded-xl bg-[#000000] hover:bg-[#00f0ff]/20 border-2 border-[#00f0ff] text-[#ffffff] font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-[0_0_20px_rgba(0,240,255,0.5)]"
           >
             {isArabic ? 'إغلاق الدليل' : 'Close Rulebook'}
           </button>

@@ -6,6 +6,7 @@
 import React, { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { Interactive } from '@react-three/xr';
 import { EducationalQuestion, Language, QuestionOption } from '../types/game';
 
 interface EducationalQuestion3DProps {
@@ -35,46 +36,23 @@ function useQuestionBoardTexture(
     const ctx = canvas.getContext('2d');
 
     if (ctx) {
-      // 1. Solid High-Contrast Opaque Dark Navy Background (#020813)
-      ctx.fillStyle = '#020813';
+      // 1. Strict pitch black background (#000000)
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, 1536, 384);
 
-      // Subtle tech background grid
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.06)';
-      ctx.lineWidth = 1;
-      for (let x = 48; x < 1536; x += 48) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, 384);
-        ctx.stroke();
-      }
-      for (let y = 48; y < 384; y += 48) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(1536, y);
-        ctx.stroke();
-      }
-
-      // 2. High-Emissive Neon Border with Corner Brackets
-      const borderColor =
-        question.difficulty === 'easy'
-          ? '#10b981'
-          : question.difficulty === 'medium'
-          ? '#00f0ff'
-          : '#f59e0b';
-
+      // 2. High-Emissive Glowing Cyan Border with Corner Brackets
       ctx.save();
-      ctx.strokeStyle = borderColor;
+      ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 8;
       ctx.strokeRect(16, 16, 1504, 352);
 
       // Inner crisp white highlight
-      ctx.strokeStyle = '#ffffff';
+      ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 2.5;
       ctx.strokeRect(20, 20, 1496, 344);
 
       // Heavy corner bracket accents
-      ctx.fillStyle = borderColor;
+      ctx.fillStyle = '#00f0ff';
       const bw = 36;
       const bh = 10;
       // Top-Left
@@ -102,8 +80,8 @@ function useQuestionBoardTexture(
           ? isArabic ? 'المستوى: متوسط' : 'MEDIUM // PORTS & ENCRYPTION'
           : isArabic ? 'المستوى: متقدم' : 'HARD // HEX & SUBNETS';
 
-      ctx.fillStyle = borderColor;
-      ctx.font = `bold 22px ${fontFamily}`;
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `900 24px ${fontFamily}`;
       ctx.textAlign = isArabic ? 'right' : 'left';
       ctx.textBaseline = 'middle';
       const headerX = isArabic ? 1480 : 54;
@@ -111,7 +89,7 @@ function useQuestionBoardTexture(
 
       // Question Counter Badge (Right / Left)
       ctx.fillStyle = '#ffffff';
-      ctx.font = `bold 22px ${fontFamily}`;
+      ctx.font = `900 24px ${fontFamily}`;
       ctx.textAlign = isArabic ? 'left' : 'right';
       const counterX = isArabic ? 54 : 1480;
       ctx.fillText(
@@ -151,8 +129,8 @@ function useQuestionBoardTexture(
       });
 
       // 5. Bottom Instructions Bar
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = `bold 22px ${fontFamily}`;
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `900 22px ${fontFamily}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       const instructionText = isArabic
@@ -188,33 +166,16 @@ function useOptionBadgeTexture(
     const ctx = canvas.getContext('2d');
 
     if (ctx) {
-      // 1. Solid #020813 Dark Navy Background
-      ctx.fillStyle = isCorrect === true ? '#052e16' : isCorrect === false ? '#450a0a' : isLocked ? '#062038' : '#020813';
+      // 1. Strict pitch black #000000 background
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, 512, 256);
 
-      // Technical grid
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.05)';
-      ctx.lineWidth = 1;
-      for (let x = 32; x < 512; x += 32) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, 256);
-        ctx.stroke();
-      }
-
       // 2. Glowing Borders & Highlight
-      const borderColor =
-        isCorrect === true
-          ? '#00FF66'
-          : isCorrect === false
-          ? '#FF0055'
-          : isLocked
-          ? '#f59e0b'
-          : '#00f0ff';
+      const borderColor = '#00f0ff';
 
       ctx.save();
       ctx.strokeStyle = borderColor;
-      ctx.lineWidth = isLocked ? 8 : 4;
+      ctx.lineWidth = isLocked ? 8 : 5;
       ctx.strokeRect(10, 10, 492, 236);
 
       // Inner highlight
@@ -240,8 +201,8 @@ function useOptionBadgeTexture(
       const letter = ['A', 'B', 'C', 'D'][index] || '•';
 
       // 3. Option Tag Pill: [ OPTION A ]
-      ctx.fillStyle = borderColor;
-      ctx.font = `bold 20px ${fontFamily}`;
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `900 22px ${fontFamily}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       const optionHeader = isArabic ? `[ الخيار ${letter} ]` : `[ OPTION ${letter} ]`;
@@ -250,13 +211,13 @@ function useOptionBadgeTexture(
       // 4. Primary Decision Token (Centered, Big & Crisp)
       const labelText = isArabic ? option.labelAr : option.labelEn;
       ctx.fillStyle = '#ffffff';
-      ctx.font = `900 32px ${fontFamily}`;
+      ctx.font = `900 34px ${fontFamily}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
       // Truncate / wrap if needed
       const maxTextWidth = 440;
-      let fontSize = 32;
+      let fontSize = 34;
       ctx.font = `900 ${fontSize}px ${fontFamily}`;
       while (ctx.measureText(labelText).width > maxTextWidth && fontSize > 18) {
         fontSize -= 2;
@@ -265,8 +226,8 @@ function useOptionBadgeTexture(
       ctx.fillText(labelText, 256, 120);
 
       // 5. Status / Target Hint at Bottom
-      ctx.font = `bold 18px ${fontFamily}`;
-      ctx.fillStyle = isCorrect === true ? '#34d399' : isCorrect === false ? '#f87171' : isLocked ? '#fbbf24' : '#94a3b8';
+      ctx.font = `900 20px ${fontFamily}`;
+      ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       const actionText =
@@ -291,7 +252,7 @@ function useOptionBadgeTexture(
 }
 
 /**
- * Individual 3D Solution Target Card with Smooth Hover Scaling (+15%)
+ * Individual 3D Solution Target Card with Smooth Hover Scaling and Direct Interaction
  */
 const SolutionTargetCard: React.FC<{
   option: QuestionOption;
@@ -300,14 +261,15 @@ const SolutionTargetCard: React.FC<{
   isLocked: boolean;
   isCorrect: boolean | null;
   isArabic: boolean;
-}> = ({ option, index, position, isLocked, isCorrect, isArabic }) => {
+  onSelect: () => void;
+}> = ({ option, index, position, isLocked, isCorrect, isArabic, onSelect }) => {
   const cardRef = useRef<THREE.Group>(null);
   const badgeTexture = useOptionBadgeTexture(option, index, isLocked, isCorrect, isArabic);
 
-  // Smooth hover scale: 1.15 when locked, 1.0 when idle
+  // Smooth hover scale: 1.05 when locked/hovered, 1.0 when idle
   useFrame((_, delta) => {
     if (cardRef.current) {
-      const targetScale = isLocked ? 1.15 : 1.0;
+      const targetScale = isLocked ? 1.05 : 1.0;
       cardRef.current.scale.x = THREE.MathUtils.damp(cardRef.current.scale.x, targetScale, 14, delta);
       cardRef.current.scale.y = THREE.MathUtils.damp(cardRef.current.scale.y, targetScale, 14, delta);
       cardRef.current.scale.z = THREE.MathUtils.damp(cardRef.current.scale.z, targetScale, 14, delta);
@@ -315,47 +277,56 @@ const SolutionTargetCard: React.FC<{
   });
 
   return (
-    <group ref={cardRef} position={position}>
-      {/* Solid #020813 Opaque Backing Plate */}
-      <mesh castShadow receiveShadow>
-        <boxGeometry args={[1.35, 0.72, 0.08]} />
-        <meshStandardMaterial
-          color="#020813"
-          metalness={0.9}
-          roughness={0.2}
-        />
-      </mesh>
+    <Interactive
+      onSelect={onSelect}
+    >
+      <group ref={cardRef} position={position}>
+        {/* Solid #000000 Opaque Backing Plate (renderOrder 0) */}
+        <mesh renderOrder={0}>
+          <boxGeometry args={[1.35, 0.72, 0.08]} />
+          <meshBasicMaterial color="#000000" />
+        </mesh>
 
-      {/* Front Canvas Textured Surface */}
-      <mesh position={[0, 0, 0.045]}>
-        <planeGeometry args={[1.30, 0.67]} />
-        <meshBasicMaterial map={badgeTexture} toneMapped={false} />
-      </mesh>
+        {/* Front Canvas Textured Surface (renderOrder 1, depthWrite false) */}
+        <mesh
+          position={[0, 0, 0.045]}
+          renderOrder={1}
+          onClick={onSelect}
+          onPointerDown={onSelect}
+        >
+          <planeGeometry args={[1.30, 0.67]} />
+          <meshBasicMaterial map={badgeTexture} toneMapped={false} depthWrite={false} />
+        </mesh>
 
-      {/* Top Cyber Emitter Node */}
-      <mesh position={[0, 0.39, 0]}>
-        <cylinderGeometry args={[0.08, 0.12, 0.08, 16]} />
-        <meshStandardMaterial
-          color={isLocked ? '#f59e0b' : '#00f0ff'}
-          emissive={isLocked ? '#f59e0b' : '#00f0ff'}
-          emissiveIntensity={isLocked ? 1.8 : 0.8}
-        />
-      </mesh>
+        {/* Wireframe Outline on Hover/Lock (renderOrder 2) */}
+        {isLocked && (
+          <mesh position={[0, 0, 0.05]} renderOrder={2}>
+            <planeGeometry args={[1.34, 0.71]} />
+            <meshBasicMaterial color="#00f0ff" wireframe toneMapped={false} depthWrite={false} />
+          </mesh>
+        )}
 
-      {/* Bottom Mounting Stanchion */}
-      <mesh position={[0, -0.42, 0]}>
-        <cylinderGeometry args={[0.04, 0.06, 0.14, 12]} />
-        <meshStandardMaterial color="#1e293b" metalness={0.8} roughness={0.3} />
-      </mesh>
-    </group>
+        {/* Top Cyber Emitter Node */}
+        <mesh position={[0, 0.39, 0]}>
+          <cylinderGeometry args={[0.08, 0.12, 0.08, 12]} />
+          <meshBasicMaterial color="#00f0ff" />
+        </mesh>
+
+        {/* Bottom Mounting Stanchion */}
+        <mesh position={[0, -0.42, 0]}>
+          <cylinderGeometry args={[0.04, 0.06, 0.14, 10]} />
+          <meshBasicMaterial color="#000000" />
+        </mesh>
+      </group>
+    </Interactive>
   );
 };
 
 /**
  * EducationalQuestion3D:
- * Eliminates all visual text overlaps through strict vertical and depth layering:
- * - Question Board: Y: +3.5m, Z: -5.0m (Fixed high-altitude, width: 4.8m)
- * - Solution Badges: Y: +1.25m, Z: -3.5m (Mid-level forward plane, horizontal distribution)
+ * Perfectly positioned in player's natural center FOV:
+ * - Question Board: Y: 2.8m, Z: -4.0m
+ * - Solution Badges: Y: 1.0m, Z: -4.0m
  */
 export const EducationalQuestion3D: React.FC<EducationalQuestion3DProps> = ({
   question,
@@ -369,56 +340,51 @@ export const EducationalQuestion3D: React.FC<EducationalQuestion3DProps> = ({
   const isArabic = language === 'ar';
   const boardTexture = useQuestionBoardTexture(question, questionIndex, totalQuestions, isArabic);
 
-  // Distribute 3 solution option cards along X: [-2.35, 0, 2.35] at Y: 1.0, Z: -5.0
+  // Distribute 3 solution option cards along X: [-2.35, 0, 2.35] at Y: 1.0, Z: -4.0
   const optionPositions: [number, number, number][] = useMemo(() => {
     const count = question.options.length;
     if (count === 3) {
       return [
-        [-2.35, 1.0, -5.0],
-        [0.0, 1.0, -5.0],
-        [2.35, 1.0, -5.0],
+        [-2.35, 1.0, -4.0],
+        [0.0, 1.0, -4.0],
+        [2.35, 1.0, -4.0],
       ];
     }
-    // Fallback for 4 options
     return [
-      [-2.7, 1.0, -5.0],
-      [-0.9, 1.0, -5.0],
-      [0.9, 1.0, -5.0],
-      [2.7, 1.0, -5.0],
+      [-2.7, 1.0, -4.0],
+      [-0.9, 1.0, -4.0],
+      [0.9, 1.0, -4.0],
+      [2.7, 1.0, -4.0],
     ];
   }, [question.options.length]);
 
   return (
     <group name="EducationalQuestionRig">
-      {/* 1. HIGH-ALTITUDE QUESTION BOARD (Y: 3.65m, Z: -5.0m) */}
-      <group position={[0, 3.65, -5.0]}>
-        {/* Solid #020813 Backplate */}
-        <mesh castShadow receiveShadow>
+      {/* 1. QUESTION BOARD LOWERED TO NATURAL CENTER FOV (Y: 2.8m, Z: -4.0m) */}
+      <group position={[0, 2.8, -4.0]}>
+        {/* Solid #000000 Backplate */}
+        <mesh renderOrder={0}>
           <boxGeometry args={[4.8, 1.25, 0.1]} />
-          <meshStandardMaterial
-            color="#020813"
-            metalness={0.92}
-            roughness={0.2}
-          />
+          <meshBasicMaterial color="#000000" />
         </mesh>
         {/* Front Canvas Plane */}
-        <mesh position={[0, 0, 0.055]}>
+        <mesh position={[0, 0, 0.055]} renderOrder={1}>
           <planeGeometry args={[4.74, 1.18]} />
-          <meshBasicMaterial map={boardTexture} toneMapped={false} />
+          <meshBasicMaterial map={boardTexture} toneMapped={false} depthWrite={false} />
         </mesh>
         {/* Top Antenna Mounts */}
         {[-2.0, 0.0, 2.0].map((x, idx) => (
           <mesh key={idx} position={[x, 0.68, 0]}>
             <cylinderGeometry args={[0.02, 0.04, 0.16, 8]} />
-            <meshStandardMaterial color="#00f0ff" emissive="#00f0ff" emissiveIntensity={0.8} />
+            <meshBasicMaterial color="#00f0ff" />
           </mesh>
         ))}
       </group>
 
-      {/* 2. SOLUTION TARGET BADGES (Y: 1.25m, Z: -3.5m) */}
+      {/* 2. SOLUTION TARGET BADGES (Y: 1.0m, Z: -4.0m) */}
       <group name="SolutionOptionsRow">
         {question.options.map((opt, idx) => {
-          const pos = optionPositions[idx] || [0, 1.25, -3.5];
+          const pos = optionPositions[idx] || [0, 1.0, -4.0];
           const isLocked = lockedTargetId === opt.id;
           const isResult = lastFeedback?.optionId === opt.id ? lastFeedback.isCorrect : null;
 
@@ -431,6 +397,7 @@ export const EducationalQuestion3D: React.FC<EducationalQuestion3DProps> = ({
               isLocked={isLocked}
               isCorrect={isResult}
               isArabic={isArabic}
+              onSelect={() => onSelectOption(opt.id)}
             />
           );
         })}

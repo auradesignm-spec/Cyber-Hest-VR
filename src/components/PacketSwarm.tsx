@@ -37,6 +37,8 @@ const DUMMY_TRAIL = new THREE.Object3D();
 
 const _ray = new THREE.Ray();
 const _sphere = new THREE.Sphere(new THREE.Vector3(), 0.3);
+const _hitPos = new THREE.Vector3();
+const _normRayDir = new THREE.Vector3();
 
 export const PacketSwarm = forwardRef<PacketSwarmHandle, PacketSwarmProps>(
   ({ scenarioId, active, difficulty = 'medium', onPacketDestroyed, onPacketBreach }, ref) => {
@@ -249,7 +251,8 @@ export const PacketSwarm = forwardRef<PacketSwarmHandle, PacketSwarmProps>(
     // Imperative hit testing
     useImperativeHandle(ref, () => ({
       checkRayHit: (rayOrigin: THREE.Vector3, rayDirection: THREE.Vector3) => {
-        _ray.set(rayOrigin, rayDirection.clone().normalize());
+        _normRayDir.copy(rayDirection).normalize();
+        _ray.set(rayOrigin, _normRayDir);
         const packets = packetsRef.current;
 
         for (let i = 0; i < packets.length; i++) {
@@ -261,11 +264,11 @@ export const PacketSwarm = forwardRef<PacketSwarmHandle, PacketSwarmProps>(
 
           if (_ray.intersectsSphere(_sphere)) {
             p.active = false;
-            const hitPos = new THREE.Vector3(p.x, p.y, p.z);
+            _hitPos.set(p.x, p.y, p.z);
             p.y = -20;
-            spatialAudio.playPacketExplosion(hitPos.x, hitPos.y, hitPos.z);
-            onPacketDestroyed?.(p.id, hitPos.x, hitPos.y, hitPos.z);
-            return { hit: true, position: hitPos };
+            spatialAudio.playPacketExplosion(_hitPos.x, _hitPos.y, _hitPos.z);
+            onPacketDestroyed?.(p.id, _hitPos.x, _hitPos.y, _hitPos.z);
+            return { hit: true, position: _hitPos };
           }
         }
         return { hit: false };
@@ -284,10 +287,10 @@ export const PacketSwarm = forwardRef<PacketSwarmHandle, PacketSwarmProps>(
 
           if (distSq <= (radius + 0.16) * (radius + 0.16)) {
             p.active = false;
-            const hitPos = new THREE.Vector3(p.x, p.y, p.z);
+            _hitPos.set(p.x, p.y, p.z);
             p.y = -20;
-            spatialAudio.playPacketExplosion(hitPos.x, hitPos.y, hitPos.z);
-            onPacketDestroyed?.(p.id, hitPos.x, hitPos.y, hitPos.z);
+            spatialAudio.playPacketExplosion(_hitPos.x, _hitPos.y, _hitPos.z);
+            onPacketDestroyed?.(p.id, _hitPos.x, _hitPos.y, _hitPos.z);
             anyHit = true;
           }
         }

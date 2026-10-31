@@ -1,6 +1,6 @@
 {
-  "summary":  "Comprehensive implementation plan to transform the entire menu and gameplay system into an AAA universal Shoot-to-Interact WebXR cyber-arcade experience where players shoot holographic 3D targets with blasters across Desktop and VR, complete with neon flash feedback, particle disintegration, and polished cyber-security combat mechanics.",
-  "updatedAt":  "2026-10-30T20:19:49.758144582Z",
+  "summary":  "Complete WebXR 90 FPS Performance & Spatial UI Refactoring Plan:\n- Enforce strict Zero-State & Zero-Allocation in useFrame (useRef only, pre-allocated Vector3/Quat/Matrix).\n- 100% InstancedMesh object pooling for bullets, enemies, particles, data shards, and floating score popups.\n- High-contrast Spatial 3D UI using solid #020611 backing plates and crisp @react-three/drei Text, eliminating HTML overlay limitations in WebXR.\n- Strict 2-Phase Warp-to-Defend flow (Phase 1 Distant Core at Z: -40, Question high at Y: 4.5, Badges at Y: 1.0; Phase 2 Forward Dash to Z: -25).\n- Arcade Juice: 50ms Hit-Stop, Electric Gold Fever Mode, Magnetic Data Shard suction, and New Record celebration.",
+  "updatedAt":  "2026-10-31T11:10:21.410187901Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

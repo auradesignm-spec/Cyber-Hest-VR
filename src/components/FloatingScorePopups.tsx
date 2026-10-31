@@ -10,107 +10,139 @@ import { ScorePopup } from '../types/game';
 
 interface FloatingScorePopupsProps {
   popups: ScorePopup[];
-  onExpire?: (id: string) => void;
 }
 
-/**
- * Creates a cached high-res canvas texture for a score label
- */
-function createScoreTexture(text: string, color: string): THREE.CanvasTexture {
+const POOL_SIZE = 12;
+
+function createBakedScoreTexture(text: string, color: string): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 160;
+  canvas.width = 384;
+  canvas.height = 112;
   const ctx = canvas.getContext('2d')!;
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = 'rgba(2, 6, 17, 0.9)';
+  ctx.fillRect(0, 0, 384, 112);
 
-  // Background glowing capsule
-  ctx.save();
-  ctx.fillStyle = 'rgba(2, 8, 20, 0.85)';
   ctx.strokeStyle = color;
-  ctx.lineWidth = 6;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 18;
+  ctx.lineWidth = 4;
+  ctx.strokeRect(4, 4, 376, 104);
 
-  const x = 16, y = 16, w = canvas.width - 32, h = canvas.height - 32, r = 24;
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-  ctx.restore();
+  // Corner brackets
+  ctx.fillStyle = color;
+  const bSize = 12;
+  ctx.fillRect(4, 4, bSize, 4);
+  ctx.fillRect(4, 4, 4, bSize);
+  ctx.fillRect(380 - bSize, 4, bSize, 4);
+  ctx.fillRect(376, 4, 4, bSize);
+  ctx.fillRect(4, 108 - 4, bSize, 4);
+  ctx.fillRect(4, 108 - bSize, 4, bSize);
+  ctx.fillRect(380 - bSize, 108 - 4, bSize, 4);
+  ctx.fillRect(376, 108 - bSize, 4, bSize);
 
-  // Typography
-  ctx.save();
-  ctx.font = '900 64px "Orbitron", monospace, sans-serif';
+  ctx.font = '900 40px "Orbitron", "JetBrains Mono", monospace';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = '#ffffff';
   ctx.shadowColor = color;
-  ctx.shadowBlur = 12;
-  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
-  ctx.restore();
+  ctx.shadowBlur = 10;
+  ctx.fillText(text, 192, 56);
 
   const texture = new THREE.CanvasTexture(canvas);
-  texture.needsUpdate = true;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearFilter;
   return texture;
 }
 
-const SingleScorePopup: React.FC<{ popup: ScorePopup }> = ({ popup }) => {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const texture = useMemo(() => createScoreTexture(popup.text, popup.color), [popup.text, popup.color]);
-  const materialRef = useRef<THREE.MeshBasicMaterial>(null);
+// Module-level pre-baked textures
+const TEXTURE_CACHE: Record<string, THREE.CanvasTexture> = {};
 
-  useFrame((state, delta) => {
-    if (!meshRef.current) return;
-    const elapsed = (Date.now() - popup.createdAt) / 1000;
-    const duration = popup.duration || 1.1;
+function getTexture(text: string, color: string): THREE.CanvasTexture {
+  const key = `${text}_${color}`;
+  if (!TEXTURE_CACHE[key]) {
+    TEXTURE_CACHE[key] = createBakedScoreTexture(text, color);
+  }
+  return TEXTURE_CACHE[key];
+}
 
-    // Upward drift
-    meshRef.current.position.y = popup.position[1] + elapsed * 0.9;
-    
-    // Scale bounce (pop in fast, then settle)
-    const scale = Math.min(1.0, elapsed * 6) * popup.scale;
-    meshRef.current.scale.set(scale * 1.6, scale * 0.5, 1);
+// Pre-allocate common textures
+if (typeof document !== 'undefined') {
+  getTexture('+100 PTS', '#00f0ff');
+  getTexture('+200 PTS', '#00f0ff');
+  getTexture('+250 PTS', '#f59e0b');
+  getTexture('+300 PTS', '#f59e0b');
+  getTexture('+500 PTS', '#f59e0b');
+  getTexture('🔥 FEVER MODE ACTIVE! 🔥', '#f59e0b');
+  getTexture('DATA SHARD +250', '#00f0ff');
+  getTexture('EMP BLAST!', '#a855f7');
+  getTexture('RAPID FIRE!', '#ff8800');
+  getTexture('PLASMA BEAM!', '#00f0ff');
+}
 
-    // Billboarding towards camera
-    meshRef.current.quaternion.copy(state.camera.quaternion);
+export const FloatingScorePopups: React.FC<FloatingScorePopupsProps> = ({ popups }) => {
+  const groupRef = useRef<THREE.Group>(null);
+  const meshRefs = useRef<(THREE.Mesh | null)[]>([]);
 
-    // Alpha fadeout
-    if (materialRef.current) {
-      const remainingAlpha = Math.max(0, 1 - (elapsed / duration) ** 1.8);
-      materialRef.current.opacity = remainingAlpha;
+  useFrame((state) => {
+    const now = Date.now();
+    for (let i = 0; i < POOL_SIZE; i++) {
+      const mesh = meshRefs.current[i];
+      if (!mesh) continue;
+
+      const popup = popups[i];
+      if (popup) {
+        const elapsed = (now - popup.createdAt) / 1000;
+        const duration = popup.duration || 1.1;
+
+        if (elapsed < duration) {
+          mesh.visible = true;
+          // Upward drift
+          mesh.position.set(
+            popup.position[0],
+            popup.position[1] + elapsed * 0.95,
+            popup.position[2]
+          );
+
+          // Pop-in bounce
+          const scale = Math.min(1.0, elapsed * 7) * (popup.scale || 1.0);
+          mesh.scale.set(scale * 1.5, scale * 0.45, 1);
+
+          // Billboard towards camera
+          mesh.quaternion.copy(state.camera.quaternion);
+
+          // Alpha fade
+          const mat = mesh.material as THREE.MeshBasicMaterial;
+          mat.opacity = Math.max(0, 1 - Math.pow(elapsed / duration, 1.8));
+          continue;
+        }
+      }
+      mesh.visible = false;
     }
   });
 
   return (
-    <mesh ref={meshRef} position={popup.position}>
-      <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial
-        ref={materialRef}
-        map={texture}
-        transparent
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-      />
-    </mesh>
-  );
-};
+    <group ref={groupRef} name="FloatingScoresPool">
+      {Array.from({ length: POOL_SIZE }, (_, idx) => {
+        const popup = popups[idx];
+        const texture = popup ? getTexture(popup.text, popup.color) : getTexture('+100 PTS', '#00f0ff');
 
-export const FloatingScorePopups: React.FC<FloatingScorePopupsProps> = ({ popups }) => {
-  return (
-    <group>
-      {popups.map((popup) => (
-        <SingleScorePopup key={popup.id} popup={popup} />
-      ))}
+        return (
+          <mesh
+            key={`score-mesh-${idx}`}
+            ref={(el) => {
+              meshRefs.current[idx] = el;
+            }}
+            visible={false}
+          >
+            <planeGeometry args={[1, 1]} />
+            <meshBasicMaterial
+              map={texture}
+              transparent
+              depthWrite={false}
+              blending={THREE.AdditiveBlending}
+            />
+          </mesh>
+        );
+      })}
     </group>
   );
 };

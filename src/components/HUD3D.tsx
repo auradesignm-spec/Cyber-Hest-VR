@@ -64,66 +64,73 @@ export const HUD3D: React.FC<HUD3DProps> = ({
     const ctx = canvas.getContext('2d');
 
     if (ctx) {
-      // Dark cyber glass background
-      ctx.fillStyle = '#030b14';
+      // 1. Strict pitch black background
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, 512, 320);
 
-      // Cyan neon border with chamfered tech corners
-      ctx.strokeStyle = threatInfo.color;
+      // 2. Cyan neon border with chamfered tech corners
+      ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 6;
       ctx.strokeRect(6, 6, 500, 308);
 
       // Header Bar
-      ctx.fillStyle = 'rgba(6, 182, 212, 0.15)';
+      ctx.fillStyle = '#000000';
       ctx.fillRect(8, 8, 496, 54);
+      ctx.strokeStyle = '#00f0ff';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(8, 8, 496, 54);
 
       const fontFam = isArabic ? '"Cairo", sans-serif' : '"JetBrains Mono", monospace';
 
-      ctx.font = `bold 22px ${fontFam}`;
-      ctx.fillStyle = threatInfo.color;
+      ctx.font = `900 24px ${fontFam}`;
+      ctx.fillStyle = '#ffffff';
       ctx.fillText(`[ ${threatInfo.code} ]`, 24, 44);
 
-      ctx.font = `bold 18px ${fontFam}`;
-      ctx.fillStyle = '#e2e8f0';
+      ctx.font = `900 20px ${fontFam}`;
+      ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'right';
       ctx.fillText(threatInfo.title, 488, 44);
       ctx.textAlign = 'left';
 
       // 1. Health Bar Section
-      ctx.font = `bold 16px ${fontFam}`;
-      ctx.fillStyle = '#94a3b8';
+      ctx.font = `900 18px ${fontFam}`;
+      ctx.fillStyle = '#ffffff';
       ctx.fillText(isArabic ? 'سلامة العقدة:' : 'NODE INTEGRITY:', 24, 98);
-      ctx.fillStyle = health > 50 ? '#10b981' : health > 25 ? '#f59e0b' : '#ef4444';
+      ctx.fillStyle = '#ffffff';
       ctx.fillText(`${health}%`, 440, 98);
 
       // Health Bar Track
-      ctx.fillStyle = '#1e293b';
+      ctx.fillStyle = '#111111';
       ctx.fillRect(24, 110, 464, 18);
-      ctx.fillStyle = health > 50 ? '#10b981' : health > 25 ? '#f59e0b' : '#ef4444';
+      ctx.strokeStyle = '#00f0ff';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(24, 110, 464, 18);
+
+      ctx.fillStyle = '#00f0ff';
       ctx.fillRect(24, 110, (464 * Math.max(0, health)) / 100, 18);
 
       // 2. Wave Timer & Score
-      ctx.fillStyle = '#94a3b8';
+      ctx.font = `900 18px ${fontFam}`;
+      ctx.fillStyle = '#ffffff';
       ctx.fillText(isArabic ? 'الوقت المتبقي:' : 'TIME REMAINING:', 24, 168);
       const minutes = Math.floor(timeRemaining / 60);
       const seconds = (timeRemaining % 60).toString().padStart(2, '0');
-      ctx.font = 'bold 28px "JetBrains Mono", monospace';
-      ctx.fillStyle = timeRemaining < 20 ? '#ef4444' : '#38bdf8';
+      ctx.font = '900 32px "JetBrains Mono", monospace';
+      ctx.fillStyle = '#ffffff';
       ctx.fillText(`${minutes}:${seconds}`, 24, 204);
 
-      ctx.font = `bold 16px ${fontFam}`;
-      ctx.fillStyle = '#94a3b8';
+      ctx.font = `900 18px ${fontFam}`;
+      ctx.fillStyle = '#ffffff';
       ctx.fillText(isArabic ? 'النقاط:' : 'SECURE SCORE:', 280, 168);
-      ctx.font = 'bold 26px "JetBrains Mono", monospace';
-      ctx.fillStyle = '#00f0ff';
+      ctx.font = '900 30px "JetBrains Mono", monospace';
+      ctx.fillStyle = '#ffffff';
       ctx.fillText(`${score} PTS`, 280, 204);
 
       // 3. Dynamic Combo Meter & Fever Mode Display
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = `bold 14px ${fontFam}`;
+      ctx.font = `900 16px ${fontFam}`;
+      ctx.fillStyle = '#ffffff';
 
       if (isFeverMode) {
-        ctx.fillStyle = '#f59e0b';
         ctx.fillText(
           isArabic ? '🔥 وضع الحماس نشط: مضاعف 3x! 🔥' : '🔥 FEVER SURGE: 3x SCORE ACTIVE! 🔥',
           24,
@@ -131,11 +138,10 @@ export const HUD3D: React.FC<HUD3DProps> = ({
         );
         // Blazing Fever Bars
         for (let i = 0; i < 10; i++) {
-          ctx.fillStyle = i % 2 === 0 ? '#f59e0b' : '#ec4899';
+          ctx.fillStyle = '#00f0ff';
           ctx.fillRect(24 + i * 46, 264, 40, 10);
         }
       } else if (combo > 1) {
-        ctx.fillStyle = '#38bdf8';
         ctx.fillText(
           isArabic
             ? `تسلسل الضربات: ${combo} [مضاعف x${multiplier}]`
@@ -145,7 +151,7 @@ export const HUD3D: React.FC<HUD3DProps> = ({
         );
         // Progressive Combo Streak Blocks
         for (let i = 0; i < 10; i++) {
-          ctx.fillStyle = i < combo ? '#06b6d4' : '#1e293b';
+          ctx.fillStyle = i < combo ? '#00f0ff' : '#111111';
           ctx.fillRect(24 + i * 46, 264, 40, 10);
         }
       } else {
@@ -154,15 +160,15 @@ export const HUD3D: React.FC<HUD3DProps> = ({
           24,
           252
         );
-        ctx.fillStyle = '#0284c7';
+        ctx.fillStyle = '#00f0ff';
         for (let i = 0; i < 10; i++) {
           ctx.fillRect(24 + i * 46, 264, 40, 10);
         }
       }
 
       // Tech micro-footer
-      ctx.fillStyle = '#475569';
-      ctx.font = '10px "JetBrains Mono", monospace';
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 11px "JetBrains Mono", monospace';
       ctx.fillText('QUANTUM NODE DEFENDER // FIRMWARE v4.2-XR', 24, 302);
     }
 

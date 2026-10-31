@@ -40,6 +40,10 @@ const _dummy = new THREE.Object3D();
 const _orientation = new THREE.Matrix4();
 const _up = new THREE.Vector3(0, 1, 0);
 
+const _target = new THREE.Vector3();
+const _normDir = new THREE.Vector3();
+const _hitPos = new THREE.Vector3();
+
 interface LasersProps {
   onBoltHit?: (position: THREE.Vector3, color: string) => void;
   isFeverMode?: boolean;
@@ -102,15 +106,15 @@ export const Lasers = forwardRef<LaserHandle, LasersProps>(({ onBoltHit, isFever
       const bolt = pool.find((b) => !b.active);
       if (!bolt) return;
 
-      const normDir = direction.clone().normalize();
+      _normDir.copy(direction).normalize();
       bolt.active = true;
       bolt.x = origin.x;
       bolt.y = origin.y;
       bolt.z = origin.z;
-      bolt.vx = normDir.x * BOLT_SPEED;
-      bolt.vy = normDir.y * BOLT_SPEED;
-      bolt.vz = normDir.z * BOLT_SPEED;
-      bolt.dir.copy(normDir);
+      bolt.vx = _normDir.x * BOLT_SPEED;
+      bolt.vy = _normDir.y * BOLT_SPEED;
+      bolt.vz = _normDir.z * BOLT_SPEED;
+      bolt.dir.copy(_normDir);
       bolt.color = isFever || isFeverMode ? '#f59e0b' : color;
       bolt.distanceTraveled = 0;
       bolt.maxDistance = 28.0;
@@ -141,7 +145,7 @@ export const Lasers = forwardRef<LaserHandle, LasersProps>(({ onBoltHit, isFever
         b.distanceTraveled += stepDist;
 
         // Check if exceeded max range or hit backwall/floor
-        if (b.distanceTraveled >= b.maxDistance || b.z < -6.5 || b.y < 0.05) {
+        if (b.distanceTraveled >= b.maxDistance || b.z < -35.0 || b.y < 0.05) {
           b.active = false;
           _dummy.position.set(0, -20, 0);
           _dummy.scale.set(0.001, 0.001, 0.001);
@@ -155,12 +159,13 @@ export const Lasers = forwardRef<LaserHandle, LasersProps>(({ onBoltHit, isFever
             impactLightRef.current.color.set(b.color);
             impactLightRef.current.intensity = 4.0;
             impactTimerRef.current = 0.12;
-            onBoltHit?.(new THREE.Vector3(b.x, b.y, b.z), b.color);
+            _hitPos.set(b.x, b.y, b.z);
+            onBoltHit?.(_hitPos, b.color);
           }
         } else {
           _dummy.position.set(b.x, b.y, b.z);
-          const target = _dummy.position.clone().add(b.dir);
-          _orientation.lookAt(_dummy.position, target, _up);
+          _target.copy(_dummy.position).add(b.dir);
+          _orientation.lookAt(_dummy.position, _target, _up);
           _dummy.quaternion.setFromRotationMatrix(_orientation);
           // Cylinder geometry default is Y-axis, rotate 90 deg around X to face trajectory
           _dummy.rotateX(Math.PI / 2);

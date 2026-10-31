@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useRef, useEffect, useState, useMemo, useImperativeHandle, forwardRef } from 'react';
+import React, { useRef, useEffect, useImperativeHandle, forwardRef, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useXR, useXRInputSourceState } from '@react-three/xr';
 import * as THREE from 'three';
@@ -19,6 +19,7 @@ export interface TargetNodeInfo {
 
 export interface VRPlayerHandle {
   triggerHeavyRumble: () => void;
+  getMuzzlePositions: () => [THREE.Vector3, THREE.Vector3];
 }
 
 interface VRPlayerProps {
@@ -39,8 +40,18 @@ interface VRPlayerProps {
   combo?: number;
   multiplier?: number;
   isFeverMode?: boolean;
-  onBlasterMuzzlesUpdated?: (muzzles: [number, number, number][]) => void;
 }
+
+// Module-level pre-allocated math objects (Zero allocations during gameplay)
+const _origin = new THREE.Vector3();
+const _dir = new THREE.Vector3(0, 0, -1);
+const _rawDirection = new THREE.Vector3(0, 0, -1);
+const _targetVec = new THREE.Vector3();
+const _normDir = new THREE.Vector3();
+const _snappedDir = new THREE.Vector3();
+const _m1 = new THREE.Vector3();
+const _m2 = new THREE.Vector3();
+const _muzzleWorldPos = new THREE.Vector3();
 
 export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
   (
@@ -57,7 +68,6 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
       combo = 0,
       multiplier = 1,
       isFeverMode = false,
-      onBlasterMuzzlesUpdated,
     },
     ref
   ) => {
@@ -70,18 +80,16 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
 
     // Desktop gun group refs
     const desktopGunsRef = useRef<THREE.Group>(null);
+    const rightGunGroupRef = useRef<THREE.Group>(null);
+    const leftGunGroupRef = useRef<THREE.Group>(null);
     const rightGunMuzzleRef = useRef<THREE.Object3D>(null);
     const leftGunMuzzleRef = useRef<THREE.Object3D>(null);
 
-    // Blaster Recoil & Capacitor Charge
-    const [rightRecoil, setRightRecoil] = useState(0);
-    const [leftRecoil, setLeftRecoil] = useState(0);
-    const [chargeLevel, setChargeLevel] = useState(1.0); // 0.0 - 1.0
-
-    // Magnetic Aim Assist State
-    const [lockedTargetId, setLockedTargetId] = useState<string | number | null>(null);
+    // Blaster Recoil & Capacitor Charge (Zero React state in useFrame)
+    const rightRecoilRef = useRef(0);
+    const leftRecoilRef = useRef(0);
+    const chargeLevelRef = useRef(1.0);
     const lockedTargetIdRef = useRef<string | number | null>(null);
-    lockedTargetIdRef.current = lockedTargetId;
 
     // Haptics Trigger Function for Meta Quest 3 Gamepads
     const triggerHaptic = (
@@ -111,11 +119,11 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
           });
         }
       } catch {
-        // Haptics safety fallback
+        // Haptics fallback safety
       }
     };
 
-    // Expose heavy rumble to parent on penalty/breach
+    // Expose heavy rumble and muzzles
     useImperativeHandle(ref, () => ({
       triggerHeavyRumble: () => {
         if (session && session.inputSources) {
@@ -124,84 +132,108 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
           });
         }
       },
+      getMuzzlePositions: () => {
+        if (isInVR) {
+          if (rightControllerState?.object) rightControllerState.object.getWorldPosition(_m1);
+          if (leftControllerState?.object) leftControllerState.object.getWorldPosition(_m2);
+        } else {
+          if (rightGunMuzzleRef.current) rightGunMuzzleRef.current.getWorldPosition(_m1);
+          if (leftGunMuzzleRef.current) leftGunMuzzleRef.current.getWorldPosition(_m2);
+        }
+        return [_m1, _m2];
+      },
     }));
 
-    // Magnetic Aim Assist Computation helper (Scales dynamically with target radius)
-    const computeMagneticAim = (origin: THREE.Vector3, rawDirection: THREE.Vector3) => {
+    // Zero-allocation Magnetic Aim Assist Computation
+    const computeMagneticAim = (originVec: THREE.Vector3, rawDir: THREE.Vector3): { snappedDir: THREE.Vector3; targetId: string | number | null } => {
       let bestTarget: TargetNodeInfo | null = null;
-      let closestAngle = 0.28; // ~16 degrees max initial threshold
-      const targetVec = new THREE.Vector3();
+      let closestAngle = 0.32; // ~18 degrees max threshold
 
-      activeTargets.forEach((target) => {
-        const toTarget = targetVec.set(...target.position).sub(origin);
-        const dist = toTarget.length();
-        const normDir = toTarget.normalize();
-        const angle = rawDirection.angleTo(normDir);
+      for (let i = 0; i < activeTargets.length; i++) {
+        const target = activeTargets[i];
+        _targetVec.set(target.position[0], target.position[1], target.position[2]).sub(originVec);
+        const dist = _targetVec.length();
+        _normDir.copy(_targetVec).normalize();
+        const angle = rawDir.angleTo(_normDir);
 
-        // Dynamic angular tolerance based on target physical radius
-        const targetRadius = target.radius || 0.65;
-        const maxAngle = Math.max(0.12, Math.atan2(targetRadius, Math.max(1.0, dist)));
+        const targetRadius = target.radius || 0.75;
+        const maxAngle = Math.max(0.14, Math.atan2(targetRadius, Math.max(1.0, dist)));
 
         if (angle < maxAngle && angle < closestAngle) {
           closestAngle = angle;
           bestTarget = target;
         }
-      });
-
-      if (bestTarget) {
-        targetVec.set(...(bestTarget as TargetNodeInfo).position).sub(origin).normalize();
-        // Magnetic snap: blend raw direction smoothly towards the locked target
-        const snappedDirection = rawDirection.clone().lerp(targetVec, 0.55).normalize();
-        return { snappedDirection, targetId: (bestTarget as TargetNodeInfo).id };
       }
 
-      return { snappedDirection: rawDirection, targetId: null };
+      if (bestTarget) {
+        _targetVec.set(bestTarget.position[0], bestTarget.position[1], bestTarget.position[2]).sub(originVec).normalize();
+        _snappedDir.copy(rawDir).lerp(_targetVec, 0.65).normalize();
+        return { snappedDir: _snappedDir, targetId: bestTarget.id };
+      }
+
+      _snappedDir.copy(rawDir);
+      return { snappedDir: _snappedDir, targetId: null };
     };
 
     // Frame Loop: Aim Assist Check, Recoil Recovery, Capacitor Charge, Blaster Bobbing
+    // STRICT ZERO REACT STATE UPDATES INSIDE useFrame
     useFrame((_, delta) => {
-      // Recoil recovery
-      setRightRecoil((prev) => (prev > 0.001 ? THREE.MathUtils.damp(prev, 0, 18, delta) : 0));
-      setLeftRecoil((prev) => (prev > 0.001 ? THREE.MathUtils.damp(prev, 0, 18, delta) : 0));
-
-      // Capacitor recharge
-      setChargeLevel((prev) => (prev < 1.0 ? Math.min(1.0, prev + delta * 2.5) : 1.0));
-
-      // Determine current aiming direction for magnetic hover feedback
-      const origin = new THREE.Vector3();
-      const dir = new THREE.Vector3(0, 0, -1);
-
-      if (isInVR && rightControllerState?.object) {
-        rightControllerState.object.getWorldPosition(origin);
-        rightControllerState.object.getWorldDirection(dir);
-        dir.negate();
+      // 1. Recoil recovery directly on meshes
+      if (rightRecoilRef.current > 0.0005) {
+        rightRecoilRef.current = THREE.MathUtils.damp(rightRecoilRef.current, 0, 18, delta);
       } else {
-        camera.getWorldPosition(origin);
+        rightRecoilRef.current = 0;
+      }
+
+      if (leftRecoilRef.current > 0.0005) {
+        leftRecoilRef.current = THREE.MathUtils.damp(leftRecoilRef.current, 0, 18, delta);
+      } else {
+        leftRecoilRef.current = 0;
+      }
+
+      if (rightGunGroupRef.current) {
+        rightGunGroupRef.current.position.z = -0.48 + rightRecoilRef.current;
+      }
+      if (leftGunGroupRef.current) {
+        leftGunGroupRef.current.position.z = -0.48 + leftRecoilRef.current;
+      }
+
+      // 2. Capacitor recharge in ref
+      if (chargeLevelRef.current < 1.0) {
+        chargeLevelRef.current = Math.min(1.0, chargeLevelRef.current + delta * 2.5);
+      }
+
+      // 3. Current aiming direction for hover feedback
+      if (isInVR && rightControllerState?.object) {
+        rightControllerState.object.getWorldPosition(_origin);
+        rightControllerState.object.getWorldDirection(_dir);
+        _dir.negate();
+      } else {
+        camera.getWorldPosition(_origin);
         raycaster.setFromCamera(pointer, camera);
-        dir.copy(raycaster.ray.direction);
+        _dir.copy(raycaster.ray.direction);
       }
 
       // Check magnetic lock
-      const { targetId } = computeMagneticAim(origin, dir);
+      const { targetId } = computeMagneticAim(_origin, _dir);
       if (targetId !== lockedTargetIdRef.current) {
-        setLockedTargetId(targetId);
+        lockedTargetIdRef.current = targetId;
         onTargetLockChanged?.(targetId);
 
         if (targetId !== null) {
-          // Hover lock feedback: Light haptic tick pulse (0.2, 30) + lock chirp
           spatialAudio.playTargetLock();
           if (isInVR) {
             if (rightControllerState?.inputSource) {
-              triggerHaptic(rightControllerState.inputSource, 0.2, 30);
+              triggerHaptic(rightControllerState.inputSource, 0.25, 25);
             }
             if (leftControllerState?.inputSource) {
-              triggerHaptic(leftControllerState.inputSource, 0.2, 30);
+              triggerHaptic(leftControllerState.inputSource, 0.25, 25);
             }
           }
         }
       }
 
-      // Desktop blasters smooth aiming interpolation and dynamic camera tracking
+      // 4. Desktop blasters smooth aiming interpolation
       if (!isInVR && desktopGunsRef.current) {
         desktopGunsRef.current.position.x = camera.position.x;
         desktopGunsRef.current.position.y = camera.position.y - 0.65;
@@ -220,23 +252,6 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
           0.18
         );
       }
-
-      // Track muzzle world positions for magnetic data shard suction
-      if (onBlasterMuzzlesUpdated) {
-        const m1 = new THREE.Vector3();
-        const m2 = new THREE.Vector3();
-        if (isInVR) {
-          if (rightControllerState?.object) rightControllerState.object.getWorldPosition(m1);
-          if (leftControllerState?.object) leftControllerState.object.getWorldPosition(m2);
-        } else {
-          if (rightGunMuzzleRef.current) rightGunMuzzleRef.current.getWorldPosition(m1);
-          if (leftGunMuzzleRef.current) leftGunMuzzleRef.current.getWorldPosition(m2);
-        }
-        onBlasterMuzzlesUpdated([
-          [m1.x, m1.y, m1.z],
-          [m2.x, m2.y, m2.z],
-        ]);
-      }
     });
 
     // VR Session Controller Listeners (Trigger Pull & Squeeze Grip)
@@ -247,34 +262,31 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
         const handedness = event.inputSource.handedness as 'left' | 'right' | 'none';
         const side = handedness === 'left' ? 'left' : 'right';
 
-        // Sharp recoil pulse (0.8 intensity, 50ms)
         triggerHaptic(event.inputSource, 0.8, 50);
-
-        // Audio, Recoil & Capacitor dip
         spatialAudio.playLaserFire(side);
-        setChargeLevel((prev) => Math.max(0.65, prev - 0.2));
-        if (side === 'right') setRightRecoil(0.08);
-        else setLeftRecoil(0.08);
 
-        const origin = new THREE.Vector3();
-        const rawDirection = new THREE.Vector3(0, 0, -1);
+        chargeLevelRef.current = Math.max(0.65, chargeLevelRef.current - 0.2);
+        if (side === 'right') rightRecoilRef.current = 0.08;
+        else leftRecoilRef.current = 0.08;
+
+        _origin.set(0, 0, 0);
+        _rawDirection.set(0, 0, -1);
 
         if (handedness === 'right' && rightControllerState?.object) {
-          rightControllerState.object.getWorldPosition(origin);
-          rightControllerState.object.getWorldDirection(rawDirection);
-          rawDirection.negate();
+          rightControllerState.object.getWorldPosition(_origin);
+          rightControllerState.object.getWorldDirection(_rawDirection);
+          _rawDirection.negate();
         } else if (handedness === 'left' && leftControllerState?.object) {
-          leftControllerState.object.getWorldPosition(origin);
-          leftControllerState.object.getWorldDirection(rawDirection);
-          rawDirection.negate();
+          leftControllerState.object.getWorldPosition(_origin);
+          leftControllerState.object.getWorldDirection(_rawDirection);
+          _rawDirection.negate();
         } else {
-          camera.getWorldPosition(origin);
-          camera.getWorldDirection(rawDirection);
+          camera.getWorldPosition(_origin);
+          camera.getWorldDirection(_rawDirection);
         }
 
-        // Apply Magnetic Aim Assist
-        const { snappedDirection } = computeMagneticAim(origin, rawDirection);
-        onFireLaser(origin, snappedDirection, side, origin);
+        const { snappedDir } = computeMagneticAim(_origin, _rawDirection);
+        onFireLaser(_origin, snappedDir, side, _origin);
       };
 
       const handleSqueezeStart = (event: XRInputSourceEvent) => {
@@ -303,24 +315,25 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
         const isRightClick = e.button === 2;
         const side = isRightClick ? 'left' : 'right';
         spatialAudio.playLaserFire(side);
-        setChargeLevel((prev) => Math.max(0.65, prev - 0.2));
-        if (side === 'right') setRightRecoil(0.06);
-        else setLeftRecoil(0.06);
+
+        chargeLevelRef.current = Math.max(0.65, chargeLevelRef.current - 0.2);
+        if (side === 'right') rightRecoilRef.current = 0.06;
+        else leftRecoilRef.current = 0.06;
 
         raycaster.setFromCamera(pointer, camera);
-        const origin = camera.position.clone();
-        const rawDirection = raycaster.ray.direction.clone();
+        _origin.copy(camera.position);
+        _rawDirection.copy(raycaster.ray.direction);
 
-        const muzzlePos =
-          side === 'left' && leftGunMuzzleRef.current
-            ? leftGunMuzzleRef.current.getWorldPosition(new THREE.Vector3())
-            : rightGunMuzzleRef.current
-            ? rightGunMuzzleRef.current.getWorldPosition(new THREE.Vector3())
-            : origin;
+        if (side === 'left' && leftGunMuzzleRef.current) {
+          leftGunMuzzleRef.current.getWorldPosition(_muzzleWorldPos);
+        } else if (rightGunMuzzleRef.current) {
+          rightGunMuzzleRef.current.getWorldPosition(_muzzleWorldPos);
+        } else {
+          _muzzleWorldPos.copy(_origin);
+        }
 
-        // Apply Magnetic Aim Assist
-        const { snappedDirection } = computeMagneticAim(origin, rawDirection);
-        onFireLaser(muzzlePos, snappedDirection, side, origin);
+        const { snappedDir } = computeMagneticAim(_origin, _rawDirection);
+        onFireLaser(_muzzleWorldPos, snappedDir, side, _origin);
       };
 
       window.addEventListener('pointerdown', handlePointerDown);
@@ -332,33 +345,27 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
         {/* 1. VR Controllers with Cyber Blasters & Diegetic Wrist HUD */}
         {isInVR && rightControllerState?.object && (
           <primitive object={rightControllerState.object}>
-            <group position={[0, 0, recoilOffset(rightRecoil)]}>
-              <CyberBlasterModel
-                color="#00f0ff"
-                isRight
-                chargeLevel={chargeLevel}
-                isLocked={lockedTargetId !== null}
-                combo={combo}
-                multiplier={multiplier}
-                isFeverMode={isFeverMode}
-              />
-            </group>
+            <CyberBlasterModel
+              color="#00f0ff"
+              isRight
+              isLocked={lockedTargetIdRef.current !== null}
+              combo={combo}
+              multiplier={multiplier}
+              isFeverMode={isFeverMode}
+            />
           </primitive>
         )}
 
         {isInVR && leftControllerState?.object && (
           <primitive object={leftControllerState.object}>
-            <group position={[0, 0, recoilOffset(leftRecoil)]}>
-              <CyberBlasterModel
-                color="#ec4899"
-                isRight={false}
-                chargeLevel={chargeLevel}
-                isLocked={lockedTargetId !== null}
-                combo={combo}
-                multiplier={multiplier}
-                isFeverMode={isFeverMode}
-              />
-            </group>
+            <CyberBlasterModel
+              color="#ec4899"
+              isRight={false}
+              isLocked={lockedTargetIdRef.current !== null}
+              combo={combo}
+              multiplier={multiplier}
+              isFeverMode={isFeverMode}
+            />
             {/* 3D Holographic Wristband HUD attached to off-hand controller in VR */}
             <HUD3D
               health={health}
@@ -380,14 +387,14 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
             <group ref={desktopGunsRef} position={[0, 0.95, -0.1]}>
               {/* Right Gun */}
               <group
-                position={[0.48, -0.16, -0.48 + rightRecoil]}
+                ref={rightGunGroupRef}
+                position={[0.48, -0.16, -0.48]}
                 rotation={[-0.04, -0.06, 0]}
               >
                 <CyberBlasterModel
                   color="#00f0ff"
                   isRight
-                  chargeLevel={chargeLevel}
-                  isLocked={lockedTargetId !== null}
+                  isLocked={lockedTargetIdRef.current !== null}
                   combo={combo}
                   multiplier={multiplier}
                   isFeverMode={isFeverMode}
@@ -397,14 +404,14 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
 
               {/* Left Gun */}
               <group
-                position={[-0.48, -0.16, -0.48 + leftRecoil]}
+                ref={leftGunGroupRef}
+                position={[-0.48, -0.16, -0.48]}
                 rotation={[-0.04, 0.06, 0]}
               >
                 <CyberBlasterModel
                   color="#ec4899"
                   isRight={false}
-                  chargeLevel={chargeLevel}
-                  isLocked={lockedTargetId !== null}
+                  isLocked={lockedTargetIdRef.current !== null}
                   combo={combo}
                   multiplier={multiplier}
                   isFeverMode={isFeverMode}
@@ -432,21 +439,10 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
   }
 );
 
-function recoilOffset(recoil: number) {
-  return recoil * 0.8;
-}
-
 /**
- * Procedural 3D OLED Display Texture for Blaster Top Surface
+ * High-Performance Static Procedural Texture for Blaster Display
  */
-function useBlasterOLEDTexture(
-  chargeLevel: number,
-  isLocked: boolean,
-  color: string,
-  combo = 0,
-  multiplier = 1,
-  isFeverMode = false
-) {
+function useStaticBlasterTexture(color: string, isRight: boolean) {
   return useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 256;
@@ -454,116 +450,85 @@ function useBlasterOLEDTexture(
     const ctx = canvas.getContext('2d');
 
     if (ctx) {
-      // OLED Pitch Black Glass
-      ctx.fillStyle = '#020611';
+      // 1. Strict pitch black background
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, 256, 128);
 
-      // Neon outer frame
-      const frameColor = isFeverMode ? '#f59e0b' : color;
-      ctx.strokeStyle = frameColor;
+      // 2. Glowing cyan border
+      ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 4;
       ctx.strokeRect(4, 4, 248, 120);
 
-      // Status Bar
-      if (isFeverMode) {
-        ctx.fillStyle = '#f59e0b';
-        ctx.font = 'bold 20px "JetBrains Mono", monospace';
-        ctx.fillText('[ 🔥 FEVER 3X ]', 16, 32);
-      } else if (combo > 1) {
-        ctx.fillStyle = '#38bdf8';
-        ctx.font = 'bold 20px "JetBrains Mono", monospace';
-        ctx.fillText(`[ COMBO x${combo} ]`, 16, 32);
-      } else {
-        ctx.fillStyle = isLocked ? '#10b981' : color;
-        ctx.font = 'bold 22px "JetBrains Mono", monospace';
-        ctx.fillText(isLocked ? '[ LOCK-ON ]' : '[ ARMED ]', 16, 32);
-      }
+      // 3. Crisp white bold text
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 22px "JetBrains Mono", monospace';
+      ctx.fillText(isRight ? '[ PRIMARY // CYBER ]' : '[ OFF-HAND // ION ]', 16, 36);
 
-      // Secondary readout
-      ctx.fillStyle = isFeverMode ? '#ec4899' : '#94a3b8';
-      ctx.font = 'bold 15px "JetBrains Mono", monospace';
-      if (isFeverMode) {
-        ctx.fillText('MAX SURGE // 300%', 16, 56);
-      } else if (combo > 1) {
-        ctx.fillText(`MULTIPLIER: x${multiplier}`, 16, 56);
-      } else {
-        ctx.fillText('240V // READY', 16, 56);
-      }
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 16px "JetBrains Mono", monospace';
+      ctx.fillText('OUTPUT: 240V // READY', 16, 68);
 
-      // Capacitor Bar Track
-      ctx.fillStyle = '#1e293b';
-      ctx.fillRect(16, 72, 224, 22);
+      ctx.fillStyle = '#00f0ff';
+      ctx.fillRect(16, 84, 224, 20);
 
-      // Segmented Energy Fill
-      const pct = Math.max(0, Math.min(1, chargeLevel));
-      ctx.fillStyle = isFeverMode ? '#f59e0b' : pct > 0.6 ? (isLocked ? '#10b981' : color) : '#f59e0b';
-      ctx.fillRect(16, 72, 224 * pct, 22);
-
-      // Battery Segments Divider
-      ctx.strokeStyle = '#020611';
+      ctx.strokeStyle = '#000000';
       ctx.lineWidth = 3;
-      for (let x = 16 + 22.4; x < 240; x += 22.4) {
+      for (let x = 16 + 28; x < 240; x += 28) {
         ctx.beginPath();
-        ctx.moveTo(x, 72);
-        ctx.lineTo(x, 94);
+        ctx.moveTo(x, 84);
+        ctx.lineTo(x, 104);
         ctx.stroke();
       }
-
-      // Energy text percentage
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 16px "JetBrains Mono", monospace';
-      ctx.fillText(`${Math.round(pct * 100)}%`, 180, 116);
     }
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
-    texture.needsUpdate = true;
     return texture;
-  }, [chargeLevel, isLocked, color, combo, multiplier, isFeverMode]);
+  }, [color, isRight]);
 }
 
 /**
- * AAA-Grade Procedural Cyber Blaster Model with Integrated 3D OLED Display & Energy Rails
+ * AAA-Grade Procedural Cyber Blaster Model with Cheap Materials for 90 FPS
  */
 const CyberBlasterModel: React.FC<{
   color: string;
   isRight: boolean;
-  chargeLevel?: number;
   isLocked?: boolean;
   combo?: number;
   multiplier?: number;
   isFeverMode?: boolean;
-}> = ({ color, isRight, chargeLevel = 1.0, isLocked = false, combo = 0, multiplier = 1, isFeverMode = false }) => {
-  const oledTexture = useBlasterOLEDTexture(chargeLevel, isLocked, color, combo, multiplier, isFeverMode);
+}> = ({ color, isRight, isFeverMode = false }) => {
+  const blasterTexture = useStaticBlasterTexture(color, isRight);
+  const activeColor = isFeverMode ? '#f59e0b' : color;
 
   return (
     <group scale={[0.85, 0.85, 0.85]}>
       {/* 1. Main Matte Carbon/Steel Receiver */}
-      <mesh position={[0, 0, -0.08]} castShadow receiveShadow>
+      <mesh position={[0, 0, -0.08]}>
         <boxGeometry args={[0.065, 0.095, 0.24]} />
-        <meshStandardMaterial color="#0b1120" metalness={0.92} roughness={0.2} />
+        <meshBasicMaterial color="#0b1120" />
       </mesh>
 
       {/* 2. Top Superconducting Energy Rail */}
       <mesh position={[0, 0.058, -0.1]}>
         <boxGeometry args={[0.045, 0.026, 0.28]} />
-        <meshStandardMaterial color="#1e293b" metalness={0.85} roughness={0.25} />
+        <meshBasicMaterial color="#1e293b" />
       </mesh>
       {/* Neon Energy Trench */}
       <mesh position={[0, 0.072, -0.1]}>
         <boxGeometry args={[0.02, 0.005, 0.26]} />
-        <meshBasicMaterial color={color} toneMapped={false} />
+        <meshBasicMaterial color={activeColor} />
       </mesh>
 
       {/* 3. Integrated 3D OLED Ammo/Capacitor Display Surface */}
       <group position={[0, 0.076, -0.05]}>
         <mesh rotation={[-Math.PI / 10, 0, 0]}>
           <boxGeometry args={[0.042, 0.006, 0.075]} />
-          <meshStandardMaterial color="#020617" metalness={0.95} roughness={0.1} />
+          <meshBasicMaterial color="#020617" />
         </mesh>
         <mesh position={[0, 0.004, 0]} rotation={[-Math.PI / 10, 0, 0]}>
           <planeGeometry args={[0.038, 0.068]} />
-          <meshBasicMaterial map={oledTexture} toneMapped={false} />
+          <meshBasicMaterial map={blasterTexture} />
         </mesh>
       </group>
 
@@ -571,37 +536,31 @@ const CyberBlasterModel: React.FC<{
       {[-0.04, -0.08, -0.12].map((zOffset, finIdx) => (
         <mesh key={`fin-${finIdx}`} position={[0, 0.02, zOffset]}>
           <boxGeometry args={[0.075, 0.06, 0.015]} />
-          <meshStandardMaterial color="#334155" metalness={0.9} roughness={0.3} />
+          <meshBasicMaterial color="#334155" />
         </mesh>
       ))}
 
       {/* 5. Dual Muzzle Emitters */}
       <mesh position={[0, 0.02, -0.25]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.018, 0.02, 0.14, 16]} />
-        <meshStandardMaterial color="#1e293b" metalness={0.9} roughness={0.2} />
+        <cylinderGeometry args={[0.018, 0.02, 0.14, 12]} />
+        <meshBasicMaterial color="#1e293b" />
       </mesh>
       {/* Muzzle Glow Corona */}
       <mesh position={[0, 0.02, -0.32]}>
-        <ringGeometry args={[0.01, 0.024, 16]} />
-        <meshBasicMaterial color={color} toneMapped={false} />
+        <ringGeometry args={[0.01, 0.024, 12]} />
+        <meshBasicMaterial color={activeColor} />
       </mesh>
 
       {/* 6. Ergonomic Tactical Pistol Grip */}
       <mesh position={[0, -0.085, 0.02]} rotation={[Math.PI / 5.2, 0, 0]}>
         <boxGeometry args={[0.05, 0.15, 0.065]} />
-        <meshStandardMaterial color="#020617" roughness={0.6} metalness={0.4} />
+        <meshBasicMaterial color="#020617" />
       </mesh>
 
       {/* 7. Glowing Rechargeable Power Core Cell */}
       <mesh position={[isRight ? 0.038 : -0.038, -0.01, -0.06]}>
-        <cylinderGeometry args={[0.02, 0.02, 0.11, 12]} />
-        <meshStandardMaterial
-          color={color}
-          emissive={color}
-          emissiveIntensity={1.4}
-          roughness={0.1}
-          metalness={0.9}
-        />
+        <cylinderGeometry args={[0.02, 0.02, 0.11, 10]} />
+        <meshBasicMaterial color={activeColor} />
       </mesh>
     </group>
   );

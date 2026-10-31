@@ -49,13 +49,22 @@ import { VictimServerNode3D } from './components/VictimServerNode3D';
 import { FloatingScorePopups } from './components/FloatingScorePopups';
 import { DataShards } from './components/DataShards';
 import { PowerUpOrbs } from './components/PowerUpOrbs';
+import { SplashHero3D } from './components/SplashHero3D';
+import { ScenarioHub3D } from './components/ScenarioHub3D';
+import { DifficultyHub3D } from './components/DifficultyHub3D';
+
+// Module-level pre-allocated math objects (Zero allocations during gameplay)
+const _camDir = new THREE.Vector3();
+const _menuRay = new THREE.Ray();
+const _menuSphere = new THREE.Sphere(new THREE.Vector3(), 0.85);
+const _normRayDir = new THREE.Vector3();
 
 /**
  * Scene Camera Rig: Coordinates the "Distant Core -> Forward Warp -> Close Combat" spatial mechanic
  * - Phase 1 (Decoding): Camera at [0, 1.6, 0.4], looking down corridor at Z: -10, FOV: 72
- * - Transition Dash: Camera rushes forward along Z from 0.4 to -20.0 with FOV stretching up to 115
- * - Phase 2 (Combat): Camera stationed at [0, 1.6, -20.0] directly in front of the Core at Z: -30
- * - Wave Reset: Camera rapidly warps backwards from -20.0 back to 0.4 for next round
+ * - Transition Dash: Camera rushes forward along Z from 0.4 to -25.0 with FOV stretching up to 115
+ * - Phase 2 (Combat): Camera stationed at [0, 1.6, -25.0] directly in front of the Core at Z: -30
+ * - Wave Reset: Camera rapidly warps backwards from -25.0 back to 0.4 for next round
  */
 function SceneCamera({
   combatPhase,
@@ -75,21 +84,20 @@ function SceneCamera({
   const { camera } = useThree();
 
   useFrame((_, delta) => {
-    const dir = new THREE.Vector3();
-    camera.getWorldDirection(dir);
+    camera.getWorldDirection(_camDir);
     spatialAudio.updateListener(
       camera.position.x,
       camera.position.y,
       camera.position.z,
-      dir.x,
-      dir.y,
-      dir.z
+      _camDir.x,
+      _camDir.y,
+      _camDir.z
     );
 
     // Screen shake on hit-stop / impact
     if (isScreenShake) {
-      camera.position.x = (Math.random() - 0.5) * 0.09;
-      camera.position.y = 1.6 + (Math.random() - 0.5) * 0.09;
+      camera.position.x = (Math.random() - 0.5) * 0.08;
+      camera.position.y = 1.6 + (Math.random() - 0.5) * 0.08;
     } else {
       camera.position.x = THREE.MathUtils.damp(camera.position.x, 0, 14, delta);
       camera.position.y = THREE.MathUtils.damp(camera.position.y, 1.6, 14, delta);
@@ -106,7 +114,7 @@ function SceneCamera({
       const velocityPeak = Math.sin(p * Math.PI);
 
       if (combatWarpDirection === 'forward') {
-        // Forward Dash towards the Core
+        // Forward Dash towards the Core to Z: -20 (Core at Z: -30)
         targetZ = THREE.MathUtils.lerp(0.4, -20.0, eased);
         targetLookZ = -30.0;
         // Hyper-dash FOV dilation (stretching from 72 up to 115!)
@@ -118,7 +126,7 @@ function SceneCamera({
         targetFov = 72 + velocityPeak * 36;
       }
     } else if (combatPhase === 'defense') {
-      // Stationed right in front of Core at Z: -30
+      // Stationed right in front of Core at Z: -20 (Core at Z: -30)
       targetZ = -20.0;
       targetLookZ = -30.0;
       targetFov = 75;
@@ -484,19 +492,49 @@ function MainGameApp() {
       return [];
     }
 
+    if (gameStatus === 'start') {
+      if (cinematicStep === 'splash') {
+        return [
+          { id: 'btn-init-defense', position: [0.0, 1.5, -4.0], radius: 1.1 },
+          { id: 'btn-manual', position: [-1.3, 0.85, -3.8], radius: 0.85 },
+          { id: 'btn-lang', position: [1.3, 0.85, -3.8], radius: 0.85 },
+          { id: 'btn-training', position: [0.0, 0.25, -3.8], radius: 1.1 },
+        ];
+      }
+      if (cinematicStep === 'scenario_select') {
+        return [
+          { id: 'scenario-1', position: [-2.5, 1.5, -4.0], radius: 1.15 },
+          { id: 'scenario-2', position: [0.0, 1.5, -4.0], radius: 1.15 },
+          { id: 'scenario-3', position: [2.5, 1.5, -4.0], radius: 1.15 },
+          { id: 'btn-back-splash', position: [-1.4, 0.3, -3.8], radius: 0.85 },
+          { id: 'btn-next-difficulty', position: [1.4, 0.3, -3.8], radius: 0.85 },
+        ];
+      }
+      if (cinematicStep === 'difficulty_select') {
+        return [
+          { id: 'diff-easy', position: [-2.5, 1.5, -4.0], radius: 1.15 },
+          { id: 'diff-medium', position: [0.0, 1.5, -4.0], radius: 1.15 },
+          { id: 'diff-hard', position: [2.5, 1.5, -4.0], radius: 1.15 },
+          { id: 'btn-back-scenarios', position: [-1.4, 0.3, -3.8], radius: 0.85 },
+          { id: 'btn-launch-mission', position: [1.4, 0.3, -3.8], radius: 0.85 },
+        ];
+      }
+      return [];
+    }
+
     if (gameStatus !== 'playing') return [];
 
-    // Phase 1 (Decoding): The 3 horizontal Answer Badges at [-3.5, 1, -5], [0, 1, -5], [3.5, 1, -5]
+    // Phase 1 (Decoding): The 3 horizontal Answer Badges at [-2.35, 1.0, -4.0], [0, 1.0, -4.0], [2.35, 1.0, -4.0]
     if (combatPhase === 'decoding' && !isCombatWarping) {
       const positions: [number, number, number][] = [
-        [-2.35, 1.0, -5.0],
-        [0.0, 1.0, -5.0],
-        [2.35, 1.0, -5.0],
+        [-2.35, 1.0, -4.0],
+        [0.0, 1.0, -4.0],
+        [2.35, 1.0, -4.0],
       ];
       return currentQuestion.options.map((opt: QuestionOption, idx: number) => ({
         id: opt.id,
-        position: positions[idx] || [0, 1.0, -5.0],
-        radius: 0.75,
+        position: positions[idx] || [0, 1.0, -4.0],
+        radius: 0.85,
       }));
     }
 
@@ -510,7 +548,7 @@ function MainGameApp() {
     }
 
     return [];
-  }, [gameStatus, trainingState, combatPhase, currentQuestion, isCombatWarping, powerUpOrbs]);
+  }, [gameStatus, cinematicStep, trainingState, combatPhase, currentQuestion, isCombatWarping, powerUpOrbs]);
 
   // Countdown Timer
   useEffect(() => {
@@ -920,7 +958,53 @@ function MainGameApp() {
     }
   }, [isArabic, trainingState.step]);
 
-  // Handle laser fire from VR controller or desktop mouse
+  // Shoot-to-Interact 3D Menu Selection Handler
+  const handleMenuTargetHit = useCallback(
+    (targetId: string | number) => {
+      const idStr = String(targetId);
+      spatialAudio.playButtonBeep(680);
+
+      if (idStr === 'btn-init-defense') {
+        spatialAudio.playWhoosh();
+        setCinematicStep('scenario_select');
+      } else if (idStr === 'btn-manual') {
+        spatialAudio.playButtonBeep(640);
+        setIsManualOpen(true);
+      } else if (idStr === 'btn-training') {
+        handleStartTraining();
+      } else if (idStr === 'btn-lang') {
+        setLanguage(isArabic ? 'en' : 'ar');
+        spatialAudio.playButtonBeep(840);
+      } else if (idStr === 'scenario-1' || idStr === 'scenario-2' || idStr === 'scenario-3') {
+        setSelectedScenarioOption(idStr as ScenarioId);
+        spatialAudio.playButtonBeep(750);
+      } else if (idStr === 'btn-next-difficulty') {
+        spatialAudio.playWhoosh();
+        setCinematicStep('difficulty_select');
+      } else if (idStr === 'btn-back-splash') {
+        spatialAudio.playWhoosh();
+        setCinematicStep('splash');
+      } else if (idStr === 'diff-easy') {
+        setDifficulty('easy');
+        spatialAudio.playButtonBeep(600);
+      } else if (idStr === 'diff-medium') {
+        setDifficulty('medium');
+        spatialAudio.playButtonBeep(720);
+      } else if (idStr === 'diff-hard') {
+        setDifficulty('hard');
+        spatialAudio.playButtonBeep(880);
+      } else if (idStr === 'btn-launch-mission') {
+        spatialAudio.playWhoosh();
+        initScenario(selectedScenarioOption === 'random' ? 'scenario-1' : selectedScenarioOption, difficulty);
+      } else if (idStr === 'btn-back-scenarios') {
+        spatialAudio.playWhoosh();
+        setCinematicStep('scenario_select');
+      }
+    },
+    [isArabic, setLanguage, handleStartTraining, selectedScenarioOption, difficulty, initScenario]
+  );
+
+  // Handle laser fire from VR controller or desktop mouse (Zero Allocations)
   const handleFireLaser = useCallback(
     (origin: THREE.Vector3, direction: THREE.Vector3, side: 'left' | 'right' | 'desktop', aimOrigin?: THREE.Vector3) => {
       const boltColor = isFeverMode
@@ -941,29 +1025,48 @@ function MainGameApp() {
       // 2. Muzzle flash sparks
       particlesRef.current?.spawnSparks(origin.x, origin.y, origin.z, boltColor);
 
-      // Training Mode dispatch
-      if (gameStatus === 'training') {
-        const hitOrigin = aimOrigin || origin;
-        const ray = new THREE.Ray(hitOrigin, direction.clone().normalize());
-        activeTargets.forEach((target) => {
-          const sphere = new THREE.Sphere(new THREE.Vector3(...target.position), target.radius || 0.45);
-          if (ray.intersectsSphere(sphere)) {
-            handleTrainingTargetHit(target.id, target.position);
+      const hitOrigin = aimOrigin || origin;
+      _normRayDir.copy(direction).normalize();
+      _menuRay.set(hitOrigin, _normRayDir);
+
+      // 3. Shoot-to-Interact 3D Menu Targets
+      if (gameStatus === 'start') {
+        for (let i = 0; i < activeTargets.length; i++) {
+          const target = activeTargets[i];
+          _menuSphere.center.set(target.position[0], target.position[1], target.position[2]);
+          _menuSphere.radius = target.radius || 0.85;
+
+          if (_menuRay.intersectsSphere(_menuSphere)) {
+            particlesRef.current?.spawnSparks(target.position[0], target.position[1], target.position[2], '#00f0ff');
+            particlesRef.current?.spawnVoxelShatter(target.position[0], target.position[1], target.position[2], '#00f0ff');
+            handleMenuTargetHit(target.id);
+            return;
           }
-        });
+        }
         return;
       }
 
-      const hitOrigin = aimOrigin || origin;
+      // 4. Training Mode dispatch
+      if (gameStatus === 'training') {
+        for (let i = 0; i < activeTargets.length; i++) {
+          const target = activeTargets[i];
+          _menuSphere.center.set(target.position[0], target.position[1], target.position[2]);
+          _menuSphere.radius = target.radius || 0.45;
+          if (_menuRay.intersectsSphere(_menuSphere)) {
+            handleTrainingTargetHit(target.id, target.position);
+          }
+        }
+        return;
+      }
 
-      // 3. Phase 2 (Defense): Check hit on power-up orbs & threat packets
+      // 5. Phase 2 (Defense): Check hit on power-up orbs & threat packets
       if (combatPhase === 'defense') {
-        const ray = new THREE.Ray(hitOrigin, direction.clone().normalize());
-
         // Check power-up orbs
-        for (const orb of powerUpOrbs) {
-          const sphere = new THREE.Sphere(new THREE.Vector3(...orb.position), 0.5);
-          if (ray.intersectsSphere(sphere)) {
+        for (let o = 0; o < powerUpOrbs.length; o++) {
+          const orb = powerUpOrbs[o];
+          _menuSphere.center.set(orb.position[0], orb.position[1], orb.position[2]);
+          _menuSphere.radius = 0.5;
+          if (_menuRay.intersectsSphere(_menuSphere)) {
             handleCollectPowerUp(orb.id, orb.type, orb.position);
             return;
           }
@@ -982,16 +1085,17 @@ function MainGameApp() {
         }
       }
 
-      // 4. Phase 1 (Decoding): Raycast against the 3 answer option badges
+      // 6. Phase 1 (Decoding): Raycast against the 3 answer option badges
       if (combatPhase === 'decoding' && !isCombatWarping) {
-        const ray = new THREE.Ray(hitOrigin, direction.clone().normalize());
-        activeTargets.forEach((target) => {
-          const sphere = new THREE.Sphere(new THREE.Vector3(...target.position), target.radius || 0.75);
-          if (ray.intersectsSphere(sphere)) {
+        for (let i = 0; i < activeTargets.length; i++) {
+          const target = activeTargets[i];
+          _menuSphere.center.set(target.position[0], target.position[1], target.position[2]);
+          _menuSphere.radius = target.radius || 0.75;
+          if (_menuRay.intersectsSphere(_menuSphere)) {
             handleOptionShot(String(target.id), target.position);
             particlesRef.current?.spawnSparks(target.position[0], target.position[1], target.position[2], '#00f0ff');
           }
-        });
+        }
       }
     },
     [
@@ -1006,6 +1110,7 @@ function MainGameApp() {
       handleOptionShot,
       handleCollectPowerUp,
       handleTrainingTargetHit,
+      handleMenuTargetHit,
     ]
   );
 
@@ -1088,9 +1193,8 @@ function MainGameApp() {
 
             {/* 
               PHASE 1 (Q&A DECODING) - THE DISTANT CORE:
-              The Protected Core sits deep at [0, 1.5, -30] leaving the entire center window
-              crystal-clear between the Question Terminal and Answer Badges!
-              In Phase 2, the camera halts at Z: -20, bringing the player into close quarters combat!
+              The Protected Core sits deep at [0, 1.5, -40.0] leaving the center window crystal-clear!
+              In Phase 2, the camera halts at Z: -25, bringing the player right in front of Core at Z: -30!
             */}
             {gameStatus !== 'start' && (
               <VictimServerNode3D
@@ -1100,7 +1204,7 @@ function MainGameApp() {
                 hearts={hearts}
                 maxHearts={maxHearts}
                 isEmergency={alarmActive || combatPhase === 'defense' || hearts <= 2}
-                position={[0, 1.5, -30]}
+                position={[0, 1.5, -30.0]}
                 scale={0.85}
               />
             )}
@@ -1172,7 +1276,6 @@ function MainGameApp() {
               combo={overclockCombo}
               multiplier={calculateComboMultiplier(overclockCombo)}
               isFeverMode={isFeverMode}
-              onBlasterMuzzlesUpdated={setBlasterMuzzles}
             />
 
             {/* Guided Training Simulation 3D Scene */}
@@ -1189,32 +1292,87 @@ function MainGameApp() {
             )}
 
             {/* 
-              PHASE 1 (DECODING ONLY) - PERFECT FRAMING:
-              Question Terminal at [0, 4.5, -5]
-              Answer Badges at [-3.5, 1, -5], [0, 1, -5], [3.5, 1, -5]
-              Completely hidden during Combat Phase 2 and Warp Dash!
+              SPATIAL 3D SHOOT-TO-INTERACT MENUS (WebXR & Desktop):
+              Crystal-clear solid #020612 cards arranged in strict grid layout
             */}
-            {gameStatus !== 'training' &&
-              gameStatus === 'playing' &&
-              combatPhase === 'decoding' &&
-              !isCombatWarping && (
-                <EducationalQuestion3D
-                  question={currentQuestion}
-                  questionIndex={questionIndex}
-                  totalQuestions={currentQuestions.length}
-                  language={language}
-                  lockedTargetId={lockedTargetId}
-                  onSelectOption={(optionId) => {
-                    const target = activeTargets.find((t) => t.id === optionId);
-                    handleOptionShot(optionId, target?.position || [0, 1.0, -5.0]);
-                  }}
-                  lastFeedback={lastQuestionResult}
-                />
-              )}
+            {gameStatus === 'start' && cinematicStep === 'splash' && (
+              <SplashHero3D
+                language={language}
+                onToggleLanguage={() => setLanguage(isArabic ? 'en' : 'ar')}
+                onInitializeDefense={() => {
+                  spatialAudio.playWhoosh();
+                  setCinematicStep('scenario_select');
+                }}
+                onOpenManual={() => setIsManualOpen(true)}
+                onStartTraining={handleStartTraining}
+                lockedTargetId={lockedTargetId}
+              />
+            )}
+
+            {gameStatus === 'start' && cinematicStep === 'scenario_select' && (
+              <ScenarioHub3D
+                language={language}
+                selectedScenario={selectedScenarioOption}
+                onSelectScenario={(sc) => {
+                  setSelectedScenarioOption(sc);
+                  spatialAudio.playButtonBeep(700);
+                }}
+                onBackToSplash={() => {
+                  spatialAudio.playWhoosh();
+                  setCinematicStep('splash');
+                }}
+                onNextDifficulty={() => {
+                  spatialAudio.playWhoosh();
+                  setCinematicStep('difficulty_select');
+                }}
+                lockedTargetId={lockedTargetId}
+              />
+            )}
+
+            {gameStatus === 'start' && cinematicStep === 'difficulty_select' && (
+              <DifficultyHub3D
+                language={language}
+                selectedDifficulty={difficulty}
+                onSelectDifficulty={(d) => {
+                  setDifficulty(d);
+                  spatialAudio.playButtonBeep(720);
+                }}
+                onBackToScenarios={() => {
+                  spatialAudio.playWhoosh();
+                  setCinematicStep('scenario_select');
+                }}
+                onLaunchGame={() => {
+                  spatialAudio.playWhoosh();
+                  initScenario(selectedScenarioOption === 'random' ? 'scenario-1' : selectedScenarioOption, difficulty);
+                }}
+                lockedTargetId={lockedTargetId}
+              />
+            )}
+
+            {/* 
+              PHASE 1 (DECODING ONLY) - PERFECT FRAMING:
+              Question Terminal at [0, 4.35, -5.0]
+              Answer Badges at [-2.35, 1, -5], [0, 1, -5], [2.35, 1, -5]
+              Preserved in memory with visible toggling to avoid shader recompilation
+            */}
+            <group visible={gameStatus !== 'training' && gameStatus === 'playing' && combatPhase === 'decoding' && !isCombatWarping}>
+              <EducationalQuestion3D
+                question={currentQuestion}
+                questionIndex={questionIndex}
+                totalQuestions={currentQuestions.length}
+                language={language}
+                lockedTargetId={lockedTargetId}
+                onSelectOption={(optionId) => {
+                  const target = activeTargets.find((t) => t.id === optionId);
+                  handleOptionShot(optionId, target?.position || [0, 1.0, -5.0]);
+                }}
+                lastFeedback={lastQuestionResult}
+              />
+            </group>
 
             {/* Post-Processing Bloom & Vignette */}
             <EffectComposer multisampling={0}>
-              <Bloom luminanceThreshold={0.88} mipmapBlur={false} intensity={0.16} />
+              <Bloom luminanceThreshold={0.9} mipmapBlur={false} intensity={0.12} />
               <ChromaticAberration
                 offset={alarmActive ? new THREE.Vector2(0.0004, 0.0004) : new THREE.Vector2(0.0001, 0.0001)}
               />
@@ -1225,28 +1383,82 @@ function MainGameApp() {
       </div>
 
       {/* 
-        PURE 2D HTML/CSS MENUS (NO 3D PLANES FOR MENUS):
-        Crisp, glassmorphic 2D overlay at z-index: 50 with strict CSS Grid
+        NON-BLOCKING SPATIAL HUD OVERLAY ON START (Allows full 3D shooting interaction)
       */}
       {gameStatus === 'start' && (
-        <StartScreen
-          difficulty={difficulty}
-          onSelectDifficulty={(d) => setDifficulty(d)}
-          selectedScenario={selectedScenarioOption}
-          onSelectScenario={(sc) => setSelectedScenarioOption(sc)}
-          cinematicStep={cinematicStep}
-          onGoToScenarioSelect={() => setCinematicStep('scenario_select')}
-          onGoToDifficultySelect={() => setCinematicStep('difficulty_select')}
-          onBackToSplash={() => setCinematicStep('splash')}
-          onBackToScenarioSelect={() => setCinematicStep('scenario_select')}
-          onStartGame={() => initScenario(selectedScenarioOption === 'random' ? 'scenario-1' : selectedScenarioOption, difficulty)}
-          onEnterVR={handleEnterVR}
-          onPlayDesktop={() => initScenario(selectedScenarioOption === 'random' ? 'scenario-1' : selectedScenarioOption, difficulty)}
-          onStartTraining={handleStartTraining}
-          onOpenManual={() => setIsManualOpen(true)}
-          isMuted={isMuted}
-          onToggleMute={handleToggleMute}
-        />
+        <div className="pointer-events-none fixed inset-0 z-30 flex flex-col justify-between p-4 md:p-6">
+          {/* Top Cyber Glass Header Bar */}
+          <div className="pointer-events-auto flex items-center justify-between bg-[#000000] border-2 border-[#00f0ff] px-5 py-3 rounded-2xl shadow-[0_0_25px_rgba(0,240,255,0.4)] mx-auto w-full max-w-5xl">
+            <div className="flex items-center space-x-3 rtl:space-x-reverse">
+              <div className="w-9 h-9 rounded-xl bg-[#000000] border-2 border-[#00f0ff] flex items-center justify-center text-[#00f0ff] shadow-[0_0_10px_rgba(0,240,255,0.4)]">
+                🛡️
+              </div>
+              <div>
+                <h1 className="text-sm md:text-base font-black tracking-widest text-[#ffffff] uppercase font-mono">
+                  CYBER HEIST: NODE DEFENDER <span className="text-[#00f0ff] text-xs font-black">V3.0 SOC</span>
+                </h1>
+                <p className="text-[11px] text-[#ffffff] font-mono font-bold tracking-wider">
+                  Asymmetric WebXR Defense // Shoot-to-Interact
+                </p>
+              </div>
+            </div>
+
+            {/* Center Hint */}
+            <div className="hidden md:flex items-center space-x-2 text-xs font-mono font-black text-[#ffffff] bg-[#000000] border-2 border-[#00f0ff] px-3.5 py-1.5 rounded-xl shadow-[0_0_15px_rgba(0,240,255,0.3)]">
+              <span>🎯</span>
+              <span>AIM & SHOOT 3D TARGETS TO SELECT</span>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="flex items-center space-x-2 rtl:space-x-reverse">
+              <button
+                onClick={() => setLanguage(isArabic ? 'en' : 'ar')}
+                className="no-game-shoot px-3 py-1.5 text-xs font-mono font-black bg-[#000000] hover:bg-[#00f0ff]/20 border-2 border-[#00f0ff] text-[#ffffff] rounded-xl transition shadow-[0_0_10px_rgba(0,240,255,0.3)] cursor-pointer"
+              >
+                {isArabic ? 'English' : 'عربي'}
+              </button>
+              <button
+                onClick={handleEnterVR}
+                className="no-game-shoot px-3.5 py-1.5 text-xs font-mono font-black bg-[#000000] hover:bg-[#00f0ff]/20 border-2 border-[#00f0ff] text-[#ffffff] rounded-xl transition shadow-[0_0_15px_rgba(0,240,255,0.5)] flex items-center space-x-1.5 cursor-pointer"
+              >
+                <span>🥽</span>
+                <span>VR Mode (Quest 3)</span>
+              </button>
+              <button
+                onClick={() => setIsManualOpen(true)}
+                className="no-game-shoot px-3 py-1.5 text-xs font-mono font-black bg-[#000000] hover:bg-[#00f0ff]/20 border-2 border-[#00f0ff] text-[#ffffff] rounded-xl transition shadow-[0_0_10px_rgba(0,240,255,0.3)] cursor-pointer"
+              >
+                📖 {isArabic ? 'الدليل' : 'Manual'}
+              </button>
+              <button
+                onClick={handleToggleMute}
+                className="no-game-shoot p-2 text-xs bg-[#000000] hover:bg-[#00f0ff]/20 border-2 border-[#00f0ff] text-[#ffffff] rounded-xl transition shadow-[0_0_10px_rgba(0,240,255,0.3)] cursor-pointer"
+              >
+                {isMuted ? '🔇' : '🔊'}
+              </button>
+            </div>
+          </div>
+
+          {/* Bottom Aim & Fire Directive */}
+          <div className="pointer-events-auto mx-auto bg-[#000000] border-2 border-[#00f0ff] px-6 py-2.5 rounded-full shadow-[0_0_25px_rgba(0,240,255,0.4)] text-center">
+            <p className="text-xs md:text-sm font-mono font-black text-[#ffffff] flex items-center justify-center space-x-2">
+              <span className="text-[#00f0ff] animate-pulse">⚡</span>
+              <span>
+                {cinematicStep === 'splash'
+                  ? isArabic
+                    ? 'أطلق الليزر على بطاقة [بدء الدفاع] أو [محاكاة التدريب]'
+                    : 'Shoot laser at [INITIALIZE DEFENSE] or [TRAINING SIMULATION] target'
+                  : cinematicStep === 'scenario_select'
+                  ? isArabic
+                    ? 'أطلق الليزر على أي بطاقة سيناريو لاختيار المهمة'
+                    : 'Shoot laser at any scenario card (Hex Breach, Payload Purge, DDoS Blackhole)'
+                  : isArabic
+                  ? 'أطلق الليزر على مستوى الصعوبة ثم أطلق على [بدء المهمة]'
+                  : 'Shoot laser at difficulty tier card, then shoot [LAUNCH MISSION]'}
+              </span>
+            </p>
+          </div>
+        </div>
       )}
 
       {/* In-Game Desktop HUD Overlay */}

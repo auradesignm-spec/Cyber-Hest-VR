@@ -5,6 +5,7 @@
 
 import React, { useMemo, useState } from 'react';
 import * as THREE from 'three';
+import { Interactive } from '@react-three/xr';
 import { Language, ScenarioId } from '../types/game';
 
 interface ScenarioHub3DProps {
@@ -26,18 +27,10 @@ interface ScenarioCardData {
   descEn: string;
   descAr: string;
   color: string;
-  xPos: number;
+  position: [number, number, number];
   rotY: number;
 }
 
-/**
- * 3D Scenario Selection Hub (Step 2) - High Contrast & Crystal Clear Text
- * - Solid dark obsidian backing panels (#020612)
- * - Ultra-high contrast pure white typography (#ffffff)
- * - Sharp colored borders (Cyan, Pink, Emerald) without emissive wash-out
- * - Visual canvas thumbnails (Blast Door, Shielded Router, Subnet EMP)
- * - Dual support: Mouse click and VR Blaster Raycast Shoot-to-Select
- */
 export const ScenarioHub3D: React.FC<ScenarioHub3DProps> = ({
   language,
   selectedScenario,
@@ -61,8 +54,8 @@ export const ScenarioHub3D: React.FC<ScenarioHub3DProps> = ({
         descEn: 'Attacker injects raw hex port codes (0x16, 0x50, 0x01BB). Decouple hex values to seal blast gates.',
         descAr: 'المهاجم يحقن رموز منافذ ست عشرية. فك تشفير الرموز الست عشرية لإغلاق البوابات المحصنة.',
         color: '#00f0ff',
-        xPos: -2.3,
-        rotY: 0.22,
+        position: [-2.5, 1.5, -4.0],
+        rotY: 0.3,
       },
       {
         id: 'scenario-2',
@@ -74,7 +67,7 @@ export const ScenarioHub3D: React.FC<ScenarioHub3DProps> = ({
         descEn: 'Corrupted color packet signatures indicate Ransomware and Worms. Deploy AES-256 and RSA countermeasure orbs.',
         descAr: 'بصمات حزم الألوان المشبوهة تدل على الفدية والديدان. أطلق دروع التطهير لحماية الموجهات.',
         color: '#ec4899',
-        xPos: 0.0,
+        position: [0.0, 1.5, -4.0],
         rotY: 0.0,
       },
       {
@@ -87,8 +80,8 @@ export const ScenarioHub3D: React.FC<ScenarioHub3DProps> = ({
         descEn: 'Botnet deluge strikes core subnet routers. Calculate CIDR masks (/12, /16, /24) and overload attacker nodes.',
         descAr: 'طوفان من البوت نت يضرب راوترات الشبكة. احسب أقنعة CIDR وأسقط عقد المهاجمين بنبضة كهرومغناطيسية.',
         color: '#10b981',
-        xPos: 2.3,
-        rotY: -0.22,
+        position: [2.5, 1.5, -4.0],
+        rotY: -0.3,
       },
     ],
     []
@@ -101,27 +94,17 @@ export const ScenarioHub3D: React.FC<ScenarioHub3DProps> = ({
     canvas.height = 960;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      // Solid dark obsidian navy background
-      ctx.fillStyle = '#020612';
+      // Solid pitch black background
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, 768, 960);
 
-      // Subtle tech grid
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.06)';
-      ctx.lineWidth = 1;
-      for (let x = 32; x < 768; x += 32) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, 960);
-        ctx.stroke();
-      }
-
       // Outer sharp glowing border
-      ctx.strokeStyle = card.color;
+      ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 8;
       ctx.strokeRect(16, 16, 736, 928);
 
       // Corner brackets
-      ctx.fillStyle = card.color;
+      ctx.fillStyle = '#00f0ff';
       const bSize = 36;
       ctx.fillRect(16, 16, bSize, 8);
       ctx.fillRect(16, 16, 8, bSize);
@@ -135,9 +118,9 @@ export const ScenarioHub3D: React.FC<ScenarioHub3DProps> = ({
       const fontFamily = isArabic ? '"Cairo", sans-serif' : '"JetBrains Mono", monospace';
 
       // Index Badge
-      ctx.fillStyle = '#090e1f';
+      ctx.fillStyle = '#000000';
       ctx.fillRect(40, 42, 160, 52);
-      ctx.strokeStyle = card.color;
+      ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 2;
       ctx.strokeRect(40, 42, 160, 52);
 
@@ -147,8 +130,8 @@ export const ScenarioHub3D: React.FC<ScenarioHub3DProps> = ({
       ctx.fillText(`SCENARIO ${card.indexStr}`, 120, 77);
 
       // Category Tag
-      ctx.font = `bold 22px ${fontFamily}`;
-      ctx.fillStyle = card.color;
+      ctx.font = `900 22px ${fontFamily}`;
+      ctx.fillStyle = '#ffffff';
       ctx.textAlign = isArabic ? 'right' : 'left';
       ctx.fillText(isArabic ? card.tagAr : card.tagEn, isArabic ? 720 : 220, 78);
 
@@ -159,7 +142,7 @@ export const ScenarioHub3D: React.FC<ScenarioHub3DProps> = ({
       ctx.fillText(isArabic ? card.titleAr : card.titleEn, isArabic ? 720 : 48, 155);
 
       // Divider Line
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(48, 185);
@@ -167,36 +150,22 @@ export const ScenarioHub3D: React.FC<ScenarioHub3DProps> = ({
       ctx.stroke();
 
       // ================= VISUAL THUMBNAIL CANVAS =================
-      // Card 1: Armored blast gate with glowing hex lock
-      // Card 2: Enterprise router with cyan force shield dome
-      // Card 3: Subnet core router with radiating EMP pulse rings
-      ctx.fillStyle = '#050c1e';
+      ctx.fillStyle = '#000000';
       ctx.fillRect(48, 205, 672, 340);
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.25)';
+      ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 2;
       ctx.strokeRect(48, 205, 672, 340);
 
       if (card.id === 'scenario-1') {
         // Armored Blast Door with Hazard Stripes & Hex Lock
-        ctx.fillStyle = '#1e293b';
+        ctx.fillStyle = '#111111';
         ctx.fillRect(160, 235, 448, 280);
         ctx.strokeStyle = '#00f0ff';
         ctx.lineWidth = 4;
         ctx.strokeRect(160, 235, 448, 280);
 
-        // Hazard Stripes Top & Bottom
-        ctx.fillStyle = '#f59e0b';
-        for (let s = 170; s < 590; s += 40) {
-          ctx.beginPath();
-          ctx.moveTo(s, 240);
-          ctx.lineTo(s + 20, 240);
-          ctx.lineTo(s + 10, 260);
-          ctx.lineTo(s - 10, 260);
-          ctx.fill();
-        }
-
         // Center Hexagon Lock Badge
-        ctx.fillStyle = '#0284c7';
+        ctx.fillStyle = '#000000';
         ctx.beginPath();
         const cx = 384, cy = 375, r = 60;
         for (let a = 0; a < 6; a++) {
@@ -208,44 +177,34 @@ export const ScenarioHub3D: React.FC<ScenarioHub3DProps> = ({
         }
         ctx.closePath();
         ctx.fill();
-        ctx.strokeStyle = '#ffffff';
+        ctx.strokeStyle = '#00f0ff';
         ctx.lineWidth = 3;
         ctx.stroke();
 
-        ctx.font = '900 32px "JetBrains Mono", monospace';
+        ctx.font = '900 36px "JetBrains Mono", monospace';
         ctx.fillStyle = '#ffffff';
         ctx.textAlign = 'center';
-        ctx.fillText('0x16', 384, 386);
+        ctx.fillText('0x16', 384, 388);
       } else if (card.id === 'scenario-2') {
         // Router with Force Shield & Color Payload Orbs
-        ctx.fillStyle = '#0f172a';
+        ctx.fillStyle = '#111111';
         ctx.fillRect(200, 360, 368, 90);
-        ctx.strokeStyle = '#ec4899';
+        ctx.strokeStyle = '#00f0ff';
         ctx.lineWidth = 4;
         ctx.strokeRect(200, 360, 368, 90);
 
-        // Antennas
-        ctx.strokeStyle = '#94a3b8';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.moveTo(250, 360);
-        ctx.lineTo(230, 290);
-        ctx.moveTo(518, 360);
-        ctx.lineTo(538, 290);
-        ctx.stroke();
-
         // Glowing Shield Dome
-        ctx.strokeStyle = '#38bdf8';
+        ctx.strokeStyle = '#00f0ff';
         ctx.lineWidth = 5;
         ctx.beginPath();
         ctx.arc(384, 405, 150, Math.PI, 0, false);
         ctx.stroke();
 
-        // Payload Orbs (Red, Blue, Green)
+        // Payload Orbs
         const orbs = [
-          { x: 300, y: 310, c: '#ef4444' },
-          { x: 384, y: 280, c: '#00f0ff' },
-          { x: 468, y: 310, c: '#10b981' },
+          { x: 300, y: 310, c: '#00f0ff' },
+          { x: 384, y: 280, c: '#ffffff' },
+          { x: 468, y: 310, c: '#00f0ff' },
         ];
         orbs.forEach((orb) => {
           ctx.fillStyle = orb.c;
@@ -258,7 +217,7 @@ export const ScenarioHub3D: React.FC<ScenarioHub3DProps> = ({
         });
       } else {
         // Subnet EMP with Radiating Concentric Pulse Rings
-        ctx.strokeStyle = '#10b981';
+        ctx.strokeStyle = '#00f0ff';
         ctx.lineWidth = 3;
         for (let r = 40; r <= 140; r += 32) {
           ctx.beginPath();
@@ -267,9 +226,9 @@ export const ScenarioHub3D: React.FC<ScenarioHub3DProps> = ({
         }
 
         // Core Switch Tower
-        ctx.fillStyle = '#064e3b';
+        ctx.fillStyle = '#111111';
         ctx.fillRect(334, 335, 100, 80);
-        ctx.strokeStyle = '#34d399';
+        ctx.strokeStyle = '#00f0ff';
         ctx.lineWidth = 4;
         ctx.strokeRect(334, 335, 100, 80);
 
@@ -280,8 +239,8 @@ export const ScenarioHub3D: React.FC<ScenarioHub3DProps> = ({
       }
 
       // ================= DESCRIPTION TEXT =================
-      ctx.font = `bold 24px ${fontFamily}`;
-      ctx.fillStyle = '#f8fafc';
+      ctx.font = `900 24px ${fontFamily}`;
+      ctx.fillStyle = '#ffffff';
       ctx.textAlign = isArabic ? 'right' : 'left';
       const desc = isArabic ? card.descAr : card.descEn;
       const words = desc.split(' ');
@@ -301,9 +260,9 @@ export const ScenarioHub3D: React.FC<ScenarioHub3DProps> = ({
       ctx.fillText(line, isArabic ? 710 : 54, yPos);
 
       // ================= INTERACTIVE CTA PROMPT =================
-      ctx.fillStyle = '#081226';
+      ctx.fillStyle = '#000000';
       ctx.fillRect(48, 820, 672, 90);
-      ctx.strokeStyle = card.color;
+      ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 4;
       ctx.strokeRect(48, 820, 672, 90);
 
@@ -322,17 +281,17 @@ export const ScenarioHub3D: React.FC<ScenarioHub3DProps> = ({
     return scenarioCards.map((c) => makeCardTexture(c));
   }, [scenarioCards, isArabic, selectedScenario]);
 
-  // Back Button Texture (High Contrast Slate-Navy)
+  // Back Button Texture (High Contrast Strict #000000 + #00F0FF)
   const backTexture = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 480;
     canvas.height = 120;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.fillStyle = '#071120';
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, 480, 120);
 
-      ctx.strokeStyle = '#64748b';
+      ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 5;
       ctx.strokeRect(6, 6, 468, 108);
 
@@ -348,17 +307,17 @@ export const ScenarioHub3D: React.FC<ScenarioHub3DProps> = ({
     return texture;
   }, [isArabic]);
 
-  // Next: Difficulty Button Texture (High Contrast Amber-Navy)
+  // Next: Difficulty Button Texture
   const nextTexture = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 540;
     canvas.height = 130;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.fillStyle = '#1c1304';
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, 540, 130);
 
-      ctx.strokeStyle = '#f59e0b';
+      ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 6;
       ctx.strokeRect(6, 6, 528, 118);
 
@@ -381,7 +340,7 @@ export const ScenarioHub3D: React.FC<ScenarioHub3DProps> = ({
     canvas.height = 200;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.fillStyle = '#020612';
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, 1200, 200);
 
       ctx.strokeStyle = '#00f0ff';
@@ -389,8 +348,8 @@ export const ScenarioHub3D: React.FC<ScenarioHub3DProps> = ({
       ctx.strokeRect(8, 8, 1184, 184);
 
       const fontFamily = isArabic ? '"Cairo", sans-serif' : '"JetBrains Mono", monospace';
-      ctx.font = `bold 24px ${fontFamily}`;
-      ctx.fillStyle = '#10b981';
+      ctx.font = `900 24px ${fontFamily}`;
+      ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
       const stepText = isArabic ? 'المرحلة 2 من 3 // أطلق بالليزر لاختيار السيناريو' : 'STEP 2 // SHOOT SCENARIO TARGET TO SELECT';
       ctx.fillText(stepText, 600, 60);
@@ -407,94 +366,138 @@ export const ScenarioHub3D: React.FC<ScenarioHub3DProps> = ({
 
   return (
     <group position={[0, 0, 0]}>
-      {/* Top Header Panel (Y: +3.2m, Z: -3.8m) */}
-      <mesh position={[0, 3.2, -3.8]}>
+      {/* Top Header Panel (Y: +3.1m, Z: -4.0m) */}
+      <mesh position={[0, 3.1, -4.0]} renderOrder={1}>
         <planeGeometry args={[3.8, 0.65]} />
-        <meshBasicMaterial map={headerTexture} toneMapped={false} />
+        <meshBasicMaterial map={headerTexture} toneMapped={false} depthWrite={false} />
       </mesh>
 
-      {/* 3 Holographic Scenario Cards */}
+      {/* 3 Holographic Scenario Cards in Rigid Curved Gallery */}
       {scenarioCards.map((card, idx) => {
         const isHovered = hoveredCard === card.id || lockedTargetId === card.id;
         const isSelected = selectedScenario === card.id;
-        const scaleVal = isHovered ? 1.15 : isSelected ? 1.08 : 1.0;
+        const scaleVal = isHovered ? 1.05 : isSelected ? 1.03 : 1.0;
 
         return (
-          <group
+          <Interactive
             key={card.id}
-            position={[card.xPos, 1.6, -3.4]}
-            rotation={[0, card.rotY, 0]}
-            scale={[scaleVal, scaleVal, scaleVal]}
+            onSelect={() => onSelectScenario(card.id)}
+            onHover={() => setHoveredCard(card.id)}
+            onBlur={() => setHoveredCard(null)}
           >
-            <mesh
-              onClick={() => onSelectScenario(card.id)}
-              onPointerOver={() => setHoveredCard(card.id)}
-              onPointerOut={() => setHoveredCard(null)}
+            <group
+              position={card.position}
+              rotation={[0, card.rotY, 0]}
+              scale={[scaleVal, scaleVal, scaleVal]}
             >
-              <planeGeometry args={[1.9, 2.4]} />
-              <meshBasicMaterial map={cardTextures[idx]} toneMapped={false} />
-            </mesh>
-
-            {/* Glowing Wireframe Outline on Hover or Selection */}
-            {(isHovered || isSelected) && (
-              <mesh position={[0, 0, 0.01]}>
-                <planeGeometry args={[1.94, 2.44]} />
-                <meshBasicMaterial color={card.color} wireframe toneMapped={false} />
+              {/* Solid Pitch Black Backing Plane (Prevents transparency blend) */}
+              <mesh renderOrder={0}>
+                <boxGeometry args={[1.92, 2.42, 0.05]} />
+                <meshBasicMaterial color="#000000" />
               </mesh>
-            )}
 
-            {/* Subtle Pedestal Underglow */}
-            <pointLight
-              position={[0, -1.2, 0.2]}
-              intensity={isHovered ? 2.0 : isSelected ? 1.5 : 0.8}
-              color={card.color}
-              distance={3.0}
-            />
-          </group>
+              {/* Front Textured Surface with strict renderOrder to avoid Z-fighting */}
+              <mesh
+                position={[0, 0, 0.03]}
+                renderOrder={1}
+                onClick={() => onSelectScenario(card.id)}
+                onPointerDown={() => onSelectScenario(card.id)}
+                onPointerEnter={() => setHoveredCard(card.id)}
+                onPointerLeave={() => setHoveredCard(null)}
+              >
+                <planeGeometry args={[1.9, 2.4]} />
+                <meshBasicMaterial map={cardTextures[idx]} toneMapped={false} depthWrite={false} />
+              </mesh>
+
+              {/* Glowing Wireframe Outline on Hover or Selection */}
+              {(isHovered || isSelected) && (
+                <mesh position={[0, 0, 0.035]} renderOrder={2}>
+                  <planeGeometry args={[1.96, 2.46]} />
+                  <meshBasicMaterial color="#00f0ff" wireframe toneMapped={false} depthWrite={false} />
+                </mesh>
+              )}
+
+              {/* Pedestal Underglow */}
+              <pointLight
+                position={[0, -1.2, 0.3]}
+                intensity={isHovered ? 2.5 : isSelected ? 1.8 : 0.8}
+                color="#00f0ff"
+                distance={3.0}
+              />
+            </group>
+          </Interactive>
         );
       })}
 
-      {/* Back to Splash Button (Y: +0.25m, X: -1.4m, Z: -3.0m) */}
-      <group
-        position={[-1.4, 0.25, -3.0]}
-        scale={hoveredCard === 'back' || lockedTargetId === 'back_splash' ? [1.12, 1.12, 1] : [1, 1, 1]}
+      {/* Back to Splash Button (Y: +0.3m, X: -1.4m, Z: -3.8m, RotY: 0.15) */}
+      <Interactive
+        onSelect={onBackToSplash}
+        onHover={() => setHoveredCard('back')}
+        onBlur={() => setHoveredCard(null)}
       >
-        <mesh
-          onClick={onBackToSplash}
-          onPointerOver={() => setHoveredCard('back')}
-          onPointerOut={() => setHoveredCard(null)}
+        <group
+          position={[-1.4, 0.3, -3.8]}
+          rotation={[0, 0.15, 0]}
+          scale={hoveredCard === 'back' || lockedTargetId === 'btn-back-splash' ? [1.05, 1.05, 1] : [1, 1, 1]}
         >
-          <planeGeometry args={[1.6, 0.42]} />
-          <meshBasicMaterial map={backTexture} toneMapped={false} />
-        </mesh>
-        {(hoveredCard === 'back' || lockedTargetId === 'back_splash') && (
-          <mesh position={[0, 0, 0.01]}>
-            <planeGeometry args={[1.64, 0.46]} />
-            <meshBasicMaterial color="#64748b" wireframe toneMapped={false} />
+          <mesh renderOrder={0}>
+            <boxGeometry args={[1.62, 0.44, 0.04]} />
+            <meshBasicMaterial color="#000000" />
           </mesh>
-        )}
-      </group>
+          <mesh
+            position={[0, 0, 0.025]}
+            renderOrder={1}
+            onClick={onBackToSplash}
+            onPointerDown={onBackToSplash}
+            onPointerEnter={() => setHoveredCard('back')}
+            onPointerLeave={() => setHoveredCard(null)}
+          >
+            <planeGeometry args={[1.6, 0.42]} />
+            <meshBasicMaterial map={backTexture} toneMapped={false} depthWrite={false} />
+          </mesh>
+          {(hoveredCard === 'back' || lockedTargetId === 'btn-back-splash') && (
+            <mesh position={[0, 0, 0.03]} renderOrder={2}>
+              <planeGeometry args={[1.66, 0.48]} />
+              <meshBasicMaterial color="#00f0ff" wireframe toneMapped={false} depthWrite={false} />
+            </mesh>
+          )}
+        </group>
+      </Interactive>
 
-      {/* Next to Difficulty Button (Y: +0.25m, X: +1.4m, Z: -3.0m) */}
-      <group
-        position={[1.4, 0.25, -3.0]}
-        scale={hoveredCard === 'next' || lockedTargetId === 'next_difficulty' ? [1.15, 1.15, 1] : [1.05, 1.05, 1]}
+      {/* Next to Difficulty Button (Y: +0.3m, X: +1.4m, Z: -3.8m, RotY: -0.15) */}
+      <Interactive
+        onSelect={() => onNextDifficulty?.()}
+        onHover={() => setHoveredCard('next')}
+        onBlur={() => setHoveredCard(null)}
       >
-        <mesh
-          onClick={() => onNextDifficulty?.()}
-          onPointerOver={() => setHoveredCard('next')}
-          onPointerOut={() => setHoveredCard(null)}
+        <group
+          position={[1.4, 0.3, -3.8]}
+          rotation={[0, -0.15, 0]}
+          scale={hoveredCard === 'next' || lockedTargetId === 'btn-next-difficulty' ? [1.05, 1.05, 1] : [1, 1, 1]}
         >
-          <planeGeometry args={[1.8, 0.48]} />
-          <meshBasicMaterial map={nextTexture} toneMapped={false} />
-        </mesh>
-        {(hoveredCard === 'next' || lockedTargetId === 'next_difficulty') && (
-          <mesh position={[0, 0, 0.01]}>
-            <planeGeometry args={[1.84, 0.52]} />
-            <meshBasicMaterial color="#f59e0b" wireframe toneMapped={false} />
+          <mesh renderOrder={0}>
+            <boxGeometry args={[1.82, 0.5, 0.04]} />
+            <meshBasicMaterial color="#000000" />
           </mesh>
-        )}
-      </group>
+          <mesh
+            position={[0, 0, 0.025]}
+            renderOrder={1}
+            onClick={() => onNextDifficulty?.()}
+            onPointerDown={() => onNextDifficulty?.()}
+            onPointerEnter={() => setHoveredCard('next')}
+            onPointerLeave={() => setHoveredCard(null)}
+          >
+            <planeGeometry args={[1.8, 0.48]} />
+            <meshBasicMaterial map={nextTexture} toneMapped={false} depthWrite={false} />
+          </mesh>
+          {(hoveredCard === 'next' || lockedTargetId === 'btn-next-difficulty') && (
+            <mesh position={[0, 0, 0.03]} renderOrder={2}>
+              <planeGeometry args={[1.86, 0.54]} />
+              <meshBasicMaterial color="#00f0ff" wireframe toneMapped={false} depthWrite={false} />
+            </mesh>
+          )}
+        </group>
+      </Interactive>
     </group>
   );
 };

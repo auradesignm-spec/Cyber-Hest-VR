@@ -5,6 +5,7 @@
 
 import React, { useMemo, useState } from 'react';
 import * as THREE from 'three';
+import { Interactive } from '@react-three/xr';
 import { Language, DifficultyLevel } from '../types/game';
 
 interface DifficultyHub3DProps {
@@ -27,18 +28,10 @@ interface DifficultyCardData {
   focusEn: string[];
   focusAr: string[];
   color: string;
-  xPos: number;
+  position: [number, number, number];
   rotY: number;
 }
 
-/**
- * 3D Difficulty & Skill Selection Hub (Step 3) - High Contrast & Crystal Clear Text
- * - Solid dark obsidian backing panels (#020612)
- * - Pure white high-contrast typography (#ffffff)
- * - Vivid colored borders (Emerald, Cyan, Amber) without emissive wash-out
- * - Clear curriculum bullet points & pacing metrics
- * - Dual support: Mouse Click and VR Blaster Raycast Shoot-to-Select
- */
 export const DifficultyHub3D: React.FC<DifficultyHub3DProps> = ({
   language,
   selectedDifficulty,
@@ -71,8 +64,8 @@ export const DifficultyHub3D: React.FC<DifficultyHub3DProps> = ({
           '• رصد التهديدات: التصيد والبرمجيات الخبيثة',
         ],
         color: '#10b981',
-        xPos: -2.3,
-        rotY: 0.22,
+        position: [-2.5, 1.5, -4.0],
+        rotY: 0.3,
       },
       {
         id: 'medium',
@@ -93,7 +86,7 @@ export const DifficultyHub3D: React.FC<DifficultyHub3DProps> = ({
           '• آليات دروع AES-256 وRSA والتجزئة',
         ],
         color: '#00f0ff',
-        xPos: 0.0,
+        position: [0.0, 1.5, -4.0],
         rotY: 0.0,
       },
       {
@@ -115,8 +108,8 @@ export const DifficultyHub3D: React.FC<DifficultyHub3DProps> = ({
           '• سرعة تدفق فائقة للحزم الهجومية',
         ],
         color: '#f59e0b',
-        xPos: 2.3,
-        rotY: -0.22,
+        position: [2.5, 1.5, -4.0],
+        rotY: -0.3,
       },
     ],
     []
@@ -128,27 +121,17 @@ export const DifficultyHub3D: React.FC<DifficultyHub3DProps> = ({
     canvas.height = 960;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      // Solid dark obsidian navy background
-      ctx.fillStyle = '#020612';
+      // Solid pitch black background
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, 768, 960);
 
-      // Subtle tech grid
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.06)';
-      ctx.lineWidth = 1;
-      for (let x = 32; x < 768; x += 32) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, 960);
-        ctx.stroke();
-      }
-
       // Outer sharp glowing border
-      ctx.strokeStyle = card.color;
+      ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 8;
       ctx.strokeRect(16, 16, 736, 928);
 
       // Corner brackets
-      ctx.fillStyle = card.color;
+      ctx.fillStyle = '#00f0ff';
       const bSize = 36;
       ctx.fillRect(16, 16, bSize, 8);
       ctx.fillRect(16, 16, 8, bSize);
@@ -163,17 +146,17 @@ export const DifficultyHub3D: React.FC<DifficultyHub3DProps> = ({
 
       // Header Tier Title
       ctx.font = `900 ${isArabic ? '38px' : '36px'} ${fontFamily}`;
-      ctx.fillStyle = card.color;
+      ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
       ctx.fillText(isArabic ? card.titleAr : card.titleEn, 384, 80);
 
       // Subtitle
-      ctx.font = `bold 20px ${fontFamily}`;
-      ctx.fillStyle = '#94a3b8';
+      ctx.font = `900 20px ${fontFamily}`;
+      ctx.fillStyle = '#ffffff';
       ctx.fillText(isArabic ? card.subtitleAr : card.subtitleEn, 384, 125);
 
       // Divider Line
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(48, 155);
@@ -181,19 +164,19 @@ export const DifficultyHub3D: React.FC<DifficultyHub3DProps> = ({
       ctx.stroke();
 
       // Pacing Stats Box
-      ctx.fillStyle = '#060e1e';
+      ctx.fillStyle = '#000000';
       ctx.fillRect(48, 175, 672, 90);
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.25)';
+      ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 2;
       ctx.strokeRect(48, 175, 672, 90);
 
-      ctx.font = 'bold 22px "JetBrains Mono", monospace';
-      ctx.fillStyle = '#38bdf8';
+      ctx.font = '900 22px "JetBrains Mono", monospace';
+      ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
       ctx.fillText(`⏱ TIMER: ${card.timer}   |   ⚡ PACING: ${card.speed}`, 384, 230);
 
       // Training Focus Header
-      ctx.font = `bold 24px ${fontFamily}`;
+      ctx.font = `900 24px ${fontFamily}`;
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = isArabic ? 'right' : 'left';
       ctx.fillText(isArabic ? 'محاور تدريب المحاكاة:' : 'TRAINING CURRICULUM:', isArabic ? 720 : 54, 315);
@@ -203,13 +186,13 @@ export const DifficultyHub3D: React.FC<DifficultyHub3DProps> = ({
       let yOffset = 365;
 
       bullets.forEach((bullet) => {
-        ctx.fillStyle = '#0a162c';
+        ctx.fillStyle = '#000000';
         ctx.fillRect(48, yOffset - 32, 672, 70);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = '#00f0ff';
+        ctx.lineWidth = 1.5;
         ctx.strokeRect(48, yOffset - 32, 672, 70);
 
-        ctx.font = `bold 22px ${fontFamily}`;
+        ctx.font = `900 22px ${fontFamily}`;
         ctx.fillStyle = '#ffffff';
         ctx.textAlign = isArabic ? 'right' : 'left';
         ctx.fillText(bullet, isArabic ? 700 : 68, yOffset + 12);
@@ -217,9 +200,9 @@ export const DifficultyHub3D: React.FC<DifficultyHub3DProps> = ({
       });
 
       // Interactive Action Prompt Box
-      ctx.fillStyle = '#081226';
+      ctx.fillStyle = '#000000';
       ctx.fillRect(48, 820, 672, 90);
-      ctx.strokeStyle = card.color;
+      ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 4;
       ctx.strokeRect(48, 820, 672, 90);
 
@@ -238,17 +221,17 @@ export const DifficultyHub3D: React.FC<DifficultyHub3DProps> = ({
     return diffCards.map((c) => makeCardTexture(c));
   }, [diffCards, isArabic, selectedDifficulty]);
 
-  // Back Button Texture (High Contrast Slate-Navy)
+  // Back Button Texture (High Contrast Strict #000000 + #00F0FF)
   const backTexture = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 480;
     canvas.height = 120;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.fillStyle = '#071120';
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, 480, 120);
 
-      ctx.strokeStyle = '#64748b';
+      ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 5;
       ctx.strokeRect(6, 6, 468, 108);
 
@@ -264,17 +247,17 @@ export const DifficultyHub3D: React.FC<DifficultyHub3DProps> = ({
     return texture;
   }, [isArabic]);
 
-  // Launch Button Texture (High Contrast Amber-Navy)
+  // Launch Button Texture (High Contrast Strict #000000 + #00F0FF)
   const launchTexture = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 540;
     canvas.height = 130;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.fillStyle = '#1c1304';
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, 540, 130);
 
-      ctx.strokeStyle = '#f59e0b';
+      ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 6;
       ctx.strokeRect(6, 6, 528, 118);
 
@@ -297,7 +280,7 @@ export const DifficultyHub3D: React.FC<DifficultyHub3DProps> = ({
     canvas.height = 200;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.fillStyle = '#020612';
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, 1200, 200);
 
       ctx.strokeStyle = '#00f0ff';
@@ -305,8 +288,8 @@ export const DifficultyHub3D: React.FC<DifficultyHub3DProps> = ({
       ctx.strokeRect(8, 8, 1184, 184);
 
       const fontFamily = isArabic ? '"Cairo", sans-serif' : '"JetBrains Mono", monospace';
-      ctx.font = `bold 24px ${fontFamily}`;
-      ctx.fillStyle = '#10b981';
+      ctx.font = `900 24px ${fontFamily}`;
+      ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
       const stepText = isArabic ? 'المرحلة 3 من 3 // أطلق بالليزر لتحديد الصعوبة' : 'STEP 3 // SHOOT DIFFICULTY TARGET TO SELECT';
       ctx.fillText(stepText, 600, 60);
@@ -323,94 +306,139 @@ export const DifficultyHub3D: React.FC<DifficultyHub3DProps> = ({
 
   return (
     <group position={[0, 0, 0]}>
-      {/* Top Header Panel (Y: +3.2m, Z: -3.8m) */}
-      <mesh position={[0, 3.2, -3.8]}>
+      {/* Top Header Panel (Y: +3.1m, Z: -4.0m) */}
+      <mesh position={[0, 3.1, -4.0]} renderOrder={1}>
         <planeGeometry args={[3.8, 0.65]} />
-        <meshBasicMaterial map={headerTexture} toneMapped={false} />
+        <meshBasicMaterial map={headerTexture} toneMapped={false} depthWrite={false} />
       </mesh>
 
-      {/* 3 Holographic Difficulty Cards */}
+      {/* 3 Holographic Difficulty Cards in Rigid Curved Gallery */}
       {diffCards.map((card, idx) => {
-        const isHovered = hoveredCard === card.id || lockedTargetId === `diff_${card.id}`;
+        const targetKey = `diff-${card.id}`;
+        const isHovered = hoveredCard === card.id || lockedTargetId === targetKey;
         const isSelected = selectedDifficulty === card.id;
-        const scaleVal = isHovered ? 1.15 : isSelected ? 1.08 : 1.0;
+        const scaleVal = isHovered ? 1.05 : isSelected ? 1.03 : 1.0;
 
         return (
-          <group
+          <Interactive
             key={card.id}
-            position={[card.xPos, 1.6, -3.4]}
-            rotation={[0, card.rotY, 0]}
-            scale={[scaleVal, scaleVal, scaleVal]}
+            onSelect={() => onSelectDifficulty(card.id)}
+            onHover={() => setHoveredCard(card.id)}
+            onBlur={() => setHoveredCard(null)}
           >
-            <mesh
-              onClick={() => onSelectDifficulty(card.id)}
-              onPointerOver={() => setHoveredCard(card.id)}
-              onPointerOut={() => setHoveredCard(null)}
+            <group
+              position={card.position}
+              rotation={[0, card.rotY, 0]}
+              scale={[scaleVal, scaleVal, scaleVal]}
             >
-              <planeGeometry args={[1.9, 2.4]} />
-              <meshBasicMaterial map={cardTextures[idx]} toneMapped={false} />
-            </mesh>
-
-            {/* Glowing Wireframe Outline on Hover or Selection */}
-            {(isHovered || isSelected) && (
-              <mesh position={[0, 0, 0.01]}>
-                <planeGeometry args={[1.94, 2.44]} />
-                <meshBasicMaterial color={card.color} wireframe toneMapped={false} />
+              {/* Solid Pitch Black Backing Plane */}
+              <mesh renderOrder={0}>
+                <boxGeometry args={[1.92, 2.42, 0.05]} />
+                <meshBasicMaterial color="#000000" />
               </mesh>
-            )}
 
-            {/* Subtle Pedestal Underglow */}
-            <pointLight
-              position={[0, -1.2, 0.2]}
-              intensity={isHovered ? 2.0 : isSelected ? 1.5 : 0.8}
-              color={card.color}
-              distance={3.0}
-            />
-          </group>
+              {/* Front Textured Surface with strict renderOrder */}
+              <mesh
+                position={[0, 0, 0.03]}
+                renderOrder={1}
+                onClick={() => onSelectDifficulty(card.id)}
+                onPointerDown={() => onSelectDifficulty(card.id)}
+                onPointerEnter={() => setHoveredCard(card.id)}
+                onPointerLeave={() => setHoveredCard(null)}
+              >
+                <planeGeometry args={[1.9, 2.4]} />
+                <meshBasicMaterial map={cardTextures[idx]} toneMapped={false} depthWrite={false} />
+              </mesh>
+
+              {/* Glowing Wireframe Outline on Hover or Selection */}
+              {(isHovered || isSelected) && (
+                <mesh position={[0, 0, 0.035]} renderOrder={2}>
+                  <planeGeometry args={[1.96, 2.46]} />
+                  <meshBasicMaterial color="#00f0ff" wireframe toneMapped={false} depthWrite={false} />
+                </mesh>
+              )}
+
+              {/* Subtle Pedestal Underglow */}
+              <pointLight
+                position={[0, -1.2, 0.3]}
+                intensity={isHovered ? 2.5 : isSelected ? 1.8 : 0.8}
+                color="#00f0ff"
+                distance={3.0}
+              />
+            </group>
+          </Interactive>
         );
       })}
 
-      {/* Back to Scenarios Button (Y: +0.25m, X: -1.4m, Z: -3.0m) */}
-      <group
-        position={[-1.4, 0.25, -3.0]}
-        scale={hoveredCard === 'back' || lockedTargetId === 'back_scenarios' ? [1.12, 1.12, 1] : [1, 1, 1]}
+      {/* Back to Scenarios Button (Y: +0.3m, X: -1.4m, Z: -3.8m, RotY: 0.15) */}
+      <Interactive
+        onSelect={onBackToScenarios}
+        onHover={() => setHoveredCard('back')}
+        onBlur={() => setHoveredCard(null)}
       >
-        <mesh
-          onClick={onBackToScenarios}
-          onPointerOver={() => setHoveredCard('back')}
-          onPointerOut={() => setHoveredCard(null)}
+        <group
+          position={[-1.4, 0.3, -3.8]}
+          rotation={[0, 0.15, 0]}
+          scale={hoveredCard === 'back' || lockedTargetId === 'btn-back-scenarios' ? [1.05, 1.05, 1] : [1, 1, 1]}
         >
-          <planeGeometry args={[1.6, 0.42]} />
-          <meshBasicMaterial map={backTexture} toneMapped={false} />
-        </mesh>
-        {(hoveredCard === 'back' || lockedTargetId === 'back_scenarios') && (
-          <mesh position={[0, 0, 0.01]}>
-            <planeGeometry args={[1.64, 0.46]} />
-            <meshBasicMaterial color="#64748b" wireframe toneMapped={false} />
+          <mesh renderOrder={0}>
+            <boxGeometry args={[1.62, 0.44, 0.04]} />
+            <meshBasicMaterial color="#000000" />
           </mesh>
-        )}
-      </group>
+          <mesh
+            position={[0, 0, 0.025]}
+            renderOrder={1}
+            onClick={onBackToScenarios}
+            onPointerDown={onBackToScenarios}
+            onPointerEnter={() => setHoveredCard('back')}
+            onPointerLeave={() => setHoveredCard(null)}
+          >
+            <planeGeometry args={[1.6, 0.42]} />
+            <meshBasicMaterial map={backTexture} toneMapped={false} depthWrite={false} />
+          </mesh>
+          {(hoveredCard === 'back' || lockedTargetId === 'btn-back-scenarios') && (
+            <mesh position={[0, 0, 0.03]} renderOrder={2}>
+              <planeGeometry args={[1.66, 0.48]} />
+              <meshBasicMaterial color="#00f0ff" wireframe toneMapped={false} depthWrite={false} />
+            </mesh>
+          )}
+        </group>
+      </Interactive>
 
-      {/* Launch Mission Button (Y: +0.25m, X: +1.4m, Z: -3.0m) */}
-      <group
-        position={[1.4, 0.25, -3.0]}
-        scale={hoveredCard === 'launch' || lockedTargetId === 'launch_game' ? [1.15, 1.15, 1] : [1.05, 1.05, 1]}
+      {/* Launch Mission Button (Y: +0.3m, X: +1.4m, Z: -3.8m, RotY: -0.15) */}
+      <Interactive
+        onSelect={onLaunchGame}
+        onHover={() => setHoveredCard('launch')}
+        onBlur={() => setHoveredCard(null)}
       >
-        <mesh
-          onClick={onLaunchGame}
-          onPointerOver={() => setHoveredCard('launch')}
-          onPointerOut={() => setHoveredCard(null)}
+        <group
+          position={[1.4, 0.3, -3.8]}
+          rotation={[0, -0.15, 0]}
+          scale={hoveredCard === 'launch' || lockedTargetId === 'btn-launch-mission' ? [1.05, 1.05, 1] : [1, 1, 1]}
         >
-          <planeGeometry args={[1.8, 0.48]} />
-          <meshBasicMaterial map={launchTexture} toneMapped={false} />
-        </mesh>
-        {(hoveredCard === 'launch' || lockedTargetId === 'launch_game') && (
-          <mesh position={[0, 0, 0.01]}>
-            <planeGeometry args={[1.84, 0.52]} />
-            <meshBasicMaterial color="#f59e0b" wireframe toneMapped={false} />
+          <mesh renderOrder={0}>
+            <boxGeometry args={[1.82, 0.5, 0.04]} />
+            <meshBasicMaterial color="#000000" />
           </mesh>
-        )}
-      </group>
+          <mesh
+            position={[0, 0, 0.025]}
+            renderOrder={1}
+            onClick={onLaunchGame}
+            onPointerDown={onLaunchGame}
+            onPointerEnter={() => setHoveredCard('launch')}
+            onPointerLeave={() => setHoveredCard(null)}
+          >
+            <planeGeometry args={[1.8, 0.48]} />
+            <meshBasicMaterial map={launchTexture} toneMapped={false} depthWrite={false} />
+          </mesh>
+          {(hoveredCard === 'launch' || lockedTargetId === 'btn-launch-mission') && (
+            <mesh position={[0, 0, 0.03]} renderOrder={2}>
+              <planeGeometry args={[1.86, 0.54]} />
+              <meshBasicMaterial color="#00f0ff" wireframe toneMapped={false} depthWrite={false} />
+            </mesh>
+          )}
+        </group>
+      </Interactive>
     </group>
   );
 };
