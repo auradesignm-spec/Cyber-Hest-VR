@@ -9,9 +9,10 @@ import * as THREE from 'three';
 
 interface ServerRoomProps {
   isEmergency?: boolean;
+  isFeverMode?: boolean;
 }
 
-export const ServerRoom: React.FC<ServerRoomProps> = ({ isEmergency = false }) => {
+export const ServerRoom: React.FC<ServerRoomProps> = ({ isEmergency = false, isFeverMode = false }) => {
   const fansGroupRef = useRef<THREE.Group>(null);
   const fiberPulsesRef = useRef<THREE.Group>(null);
   const ceilingGridRef = useRef<THREE.Group>(null);
@@ -196,6 +197,29 @@ export const ServerRoom: React.FC<ServerRoomProps> = ({ isEmergency = false }) =
       if (strobe1BeamMat2Ref.current) strobe1BeamMat2Ref.current.opacity = beamAlpha1;
       if (strobe2BeamMat1Ref.current) strobe2BeamMat1Ref.current.opacity = beamAlpha2;
       if (strobe2BeamMat2Ref.current) strobe2BeamMat2Ref.current.opacity = beamAlpha2;
+    } else if (isFeverMode) {
+      // FEVER MODE: Dynamic high-energy rhythmic surge pulsing to the 138 BPM synth beat
+      const beatPulse = (Math.sin(t * 14.5) + 1.0) * 0.5; // 0 to 1
+      const feverIntensity = 2.0 + beatPulse * 2.2;
+
+      if (ambientLightRef.current) {
+        ambientLightRef.current.intensity = THREE.MathUtils.damp(ambientLightRef.current.intensity, 0.9 + beatPulse * 0.5, 14, delta);
+      }
+      if (dirLightRef.current) {
+        dirLightRef.current.intensity = THREE.MathUtils.damp(dirLightRef.current.intensity, 2.2, 10, delta);
+      }
+      if (centerPointLightRef.current) {
+        centerPointLightRef.current.intensity = THREE.MathUtils.damp(centerPointLightRef.current.intensity, feverIntensity, 16, delta);
+      }
+      if (leftPointLightRef.current) {
+        leftPointLightRef.current.intensity = THREE.MathUtils.damp(leftPointLightRef.current.intensity, 2.2 + beatPulse * 1.5, 14, delta);
+      }
+      if (rightPointLightRef.current) {
+        rightPointLightRef.current.intensity = THREE.MathUtils.damp(rightPointLightRef.current.intensity, 2.2 + beatPulse * 1.5, 14, delta);
+      }
+      if (rearAlertLightRef.current) {
+        rearAlertLightRef.current.intensity = THREE.MathUtils.damp(rearAlertLightRef.current.intensity, 3.5, 10, delta);
+      }
     } else {
       // Nominal steady-state lighting restoration
       if (ambientLightRef.current) {

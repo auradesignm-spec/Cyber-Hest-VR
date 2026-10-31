@@ -337,3 +337,65 @@ export const INCIDENT_MANUAL = {
     },
   },
 };
+
+/**
+ * Calculates current combo multiplier based on consecutive hit streak.
+ * 0 - 2 hits: 1x
+ * 3 - 5 hits: 2x
+ * 6 - 9 hits: 3x
+ * 10+ hits: 4x
+ */
+export function calculateComboMultiplier(combo: number): number {
+  if (combo >= 10) return 4;
+  if (combo >= 6) return 3;
+  if (combo >= 3) return 2;
+  return 1;
+}
+
+/**
+ * Checks if Fever Mode is reached (combo >= 10)
+ */
+export function isFeverTriggered(combo: number): boolean {
+  return combo >= 10;
+}
+
+/**
+ * Calculates the score awarded for a hit.
+ * If Fever Mode is active, the score is tripled (3x on top of combo multiplier).
+ */
+export function calculateHitScore(
+  basePoints: number,
+  combo: number,
+  isFeverMode: boolean
+): number {
+  const multiplier = calculateComboMultiplier(combo);
+  const feverMultiplier = isFeverMode ? 3 : 1;
+  return basePoints * multiplier * feverMultiplier;
+}
+
+/**
+ * Handles the 1.5-second miss grace window.
+ * When a miss occurs, a 1.5-second timer starts. If another hit occurs within 1.5s,
+ * the combo continues. If time expires, the combo drops to 0.
+ */
+export function processMissGrace(
+  currentCombo: number,
+  missGraceRemaining: number,
+  delta: number
+): { newCombo: number; newGrace: number; resetOccurred: boolean } {
+  if (currentCombo === 0) {
+    return { newCombo: 0, newGrace: 0, resetOccurred: false };
+  }
+  const updatedGrace = missGraceRemaining - delta;
+  if (updatedGrace <= 0) {
+    return { newCombo: 0, newGrace: 0, resetOccurred: true };
+  }
+  return { newCombo: currentCombo, newGrace: updatedGrace, resetOccurred: false };
+}
+
+/**
+ * Determines if a destroyed malware packet drops a magnetic data shard (30% probability)
+ */
+export function shouldDropDataShard(randomValue: number = Math.random()): boolean {
+  return randomValue <= 0.30;
+}

@@ -806,6 +806,9 @@ export class SpatialAudioEngine {
   /**
    * Warp Deceleration & Arrival Thud
    */
+  /**
+   * Warp Deceleration & Arrival Thud
+   */
   public playWarpDecelerate() {
     if (this.muted) return;
     const ctx = this.initContext();
@@ -828,6 +831,288 @@ export class SpatialAudioEngine {
 
       osc.start(t);
       osc.stop(t + 0.5);
+    } catch {
+      // safety
+    }
+  }
+
+  // --- ARCADE & FEVER MODE AUDIO ENHANCEMENTS ---
+  private isFeverActive = false;
+  private feverBeatInterval: number | null = null;
+
+  public setFeverMode(active: boolean) {
+    if (this.isFeverActive === active) return;
+    this.isFeverActive = active;
+    if (active) {
+      this.playFeverSurge();
+      this.startFeverBeat();
+    } else {
+      this.stopFeverBeat();
+    }
+  }
+
+  /**
+   * Fever Mode Activation Surge: Electrifying octave climb with distortion resonance
+   */
+  public playFeverSurge() {
+    if (this.muted) return;
+    const ctx = this.initContext();
+    if (!ctx || !this.masterGain) return;
+
+    try {
+      const t = ctx.currentTime;
+      // Hyper arpeggio: C5 -> E5 -> G5 -> C6 -> E6
+      const freqs = [523.25, 659.25, 783.99, 1046.5, 1318.51, 1567.98, 2093.0];
+      freqs.forEach((f, idx) => {
+        if (!ctx || !this.masterGain) return;
+        const noteTime = t + idx * 0.045;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(f, noteTime);
+
+        gain.gain.setValueAtTime(0.28, noteTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, noteTime + 0.35);
+
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+
+        osc.start(noteTime);
+        osc.stop(noteTime + 0.38);
+      });
+
+      // Sub drop impact
+      const sub = ctx.createOscillator();
+      const subGain = ctx.createGain();
+      sub.type = 'sine';
+      sub.frequency.setValueAtTime(140, t);
+      sub.frequency.exponentialRampToValueAtTime(45, t + 0.4);
+      subGain.gain.setValueAtTime(0.5, t);
+      subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+      sub.connect(subGain);
+      subGain.connect(this.masterGain);
+      sub.start(t);
+      sub.stop(t + 0.5);
+    } catch {
+      // safety
+    }
+  }
+
+  /**
+   * Fast 20% Accelerated Synthwave Pulse during Fever Mode (138 BPM, ~435ms per beat)
+   */
+  private startFeverBeat() {
+    this.stopFeverBeat();
+    if (this.muted) return;
+
+    const beatIntervalMs = 434; // ~138 BPM
+    let step = 0;
+    const bassNotes = [110, 110, 130.81, 146.83, 110, 164.81, 146.83, 123.47]; // A2 bassline
+
+    this.feverBeatInterval = window.setInterval(() => {
+      if (!this.isFeverActive || this.muted) return;
+      const ctx = this.initContext();
+      if (!ctx || !this.masterGain) return;
+
+      try {
+        const t = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const filter = ctx.createBiquadFilter();
+        const gain = ctx.createGain();
+
+        const freq = bassNotes[step % bassNotes.length];
+        step++;
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq, t);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(650, t);
+        filter.frequency.exponentialRampToValueAtTime(120, t + 0.18);
+
+        gain.gain.setValueAtTime(0.22, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+
+        osc.start(t);
+        osc.stop(t + 0.25);
+      } catch {
+        // safety
+      }
+    }, beatIntervalMs);
+  }
+
+  private stopFeverBeat() {
+    if (this.feverBeatInterval) {
+      clearInterval(this.feverBeatInterval);
+      this.feverBeatInterval = null;
+    }
+  }
+
+  /**
+   * Shard Pickup Chime: Crisp high-tech absorption ping
+   */
+  public playShardPickup(x?: number, y?: number, z?: number) {
+    if (this.muted) return;
+    const ctx = this.initContext();
+    if (!ctx || !this.masterGain) return;
+
+    try {
+      const t = ctx.currentTime;
+      let target: AudioNode = this.masterGain;
+
+      if (x !== undefined && y !== undefined && z !== undefined && ctx.createPanner) {
+        const panner = ctx.createPanner();
+        panner.panningModel = 'HRTF';
+        panner.distanceModel = 'inverse';
+        panner.refDistance = 1;
+        panner.maxDistance = 25;
+        panner.setPosition(x, y, z);
+        panner.connect(this.masterGain);
+        target = panner;
+      }
+
+      [1320, 1760, 2640].forEach((freq, idx) => {
+        if (!ctx) return;
+        const noteTime = t + idx * 0.035;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, noteTime);
+
+        gain.gain.setValueAtTime(0.25, noteTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, noteTime + 0.25);
+
+        osc.connect(gain);
+        gain.connect(target);
+
+        osc.start(noteTime);
+        osc.stop(noteTime + 0.28);
+      });
+    } catch {
+      // safety
+    }
+  }
+
+  /**
+   * Combo Tier Milestone SFX: Plays ascending chime for x2, x3, x4
+   */
+  public playComboMilestone(multiplier: number) {
+    if (this.muted) return;
+    const ctx = this.initContext();
+    if (!ctx || !this.masterGain) return;
+
+    try {
+      const t = ctx.currentTime;
+      const baseFreq = multiplier === 2 ? 587.33 : multiplier === 3 ? 783.99 : 1046.5;
+      const notes = [baseFreq, baseFreq * 1.25, baseFreq * 1.5];
+
+      notes.forEach((freq, idx) => {
+        if (!ctx || !this.masterGain) return;
+        const noteTime = t + idx * 0.06;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, noteTime);
+
+        gain.gain.setValueAtTime(0.22, noteTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, noteTime + 0.28);
+
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+
+        osc.start(noteTime);
+        osc.stop(noteTime + 0.3);
+      });
+    } catch {
+      // safety
+    }
+  }
+
+  /**
+   * Massive EMP Blast Shockwave Audio
+   */
+  public playEMPBlast() {
+    if (this.muted) return;
+    const ctx = this.initContext();
+    if (!ctx || !this.masterGain) return;
+
+    try {
+      const t = ctx.currentTime;
+      // 1. Deep Sub Bass drop
+      const subOsc = ctx.createOscillator();
+      const subGain = ctx.createGain();
+      subOsc.type = 'sawtooth';
+      subOsc.frequency.setValueAtTime(140, t);
+      subOsc.frequency.exponentialRampToValueAtTime(28, t + 0.8);
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(350, t);
+      filter.frequency.exponentialRampToValueAtTime(60, t + 0.8);
+
+      subGain.gain.setValueAtTime(0.6, t);
+      subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.85);
+
+      subOsc.connect(filter);
+      filter.connect(subGain);
+      subGain.connect(this.masterGain);
+
+      subOsc.start(t);
+      subOsc.stop(t + 0.9);
+
+      // 2. High-frequency electrostatic crackle
+      const crackleOsc = ctx.createOscillator();
+      const crackleGain = ctx.createGain();
+      crackleOsc.type = 'square';
+      crackleOsc.frequency.setValueAtTime(2400, t);
+      crackleOsc.frequency.exponentialRampToValueAtTime(180, t + 0.5);
+
+      crackleGain.gain.setValueAtTime(0.25, t);
+      crackleGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+
+      crackleOsc.connect(crackleGain);
+      crackleGain.connect(this.masterGain);
+
+      crackleOsc.start(t);
+      crackleOsc.stop(t + 0.6);
+    } catch {
+      // safety
+    }
+  }
+
+  /**
+   * Continuous Plasma Beam Hum Sound
+   */
+  public playPlasmaBeamSound() {
+    if (this.muted) return;
+    const ctx = this.initContext();
+    if (!ctx || !this.masterGain) return;
+
+    try {
+      const t = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(320, t);
+      osc.frequency.linearRampToValueAtTime(480, t + 0.4);
+      osc.frequency.linearRampToValueAtTime(360, t + 0.8);
+
+      gain.gain.setValueAtTime(0.3, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.85);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+
+      osc.start(t);
+      osc.stop(t + 0.9);
     } catch {
       // safety
     }

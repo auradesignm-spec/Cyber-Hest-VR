@@ -16,6 +16,11 @@ import {
   HEX_PORT_TABLE,
   PAYLOAD_RULES,
   SUBNET_RULES,
+  calculateComboMultiplier,
+  isFeverTriggered,
+  calculateHitScore,
+  processMissGrace,
+  shouldDropDataShard,
 } from './rules';
 
 test('Scenario 1: hexToPort correctly decodes hexadecimal strings', () => {
@@ -75,4 +80,55 @@ test('Rule definitions integrity', () => {
   assert.ok(HEX_PORT_TABLE.length >= 6);
   assert.ok(PAYLOAD_RULES.length >= 4);
   assert.ok(SUBNET_RULES.length >= 3);
+});
+
+test('Arcade: calculateComboMultiplier correctly scales with streak', () => {
+  assert.equal(calculateComboMultiplier(0), 1);
+  assert.equal(calculateComboMultiplier(1), 1);
+  assert.equal(calculateComboMultiplier(2), 1);
+  assert.equal(calculateComboMultiplier(3), 2);
+  assert.equal(calculateComboMultiplier(5), 2);
+  assert.equal(calculateComboMultiplier(6), 3);
+  assert.equal(calculateComboMultiplier(9), 3);
+  assert.equal(calculateComboMultiplier(10), 4);
+  assert.equal(calculateComboMultiplier(15), 4);
+});
+
+test('Arcade: isFeverTriggered activates at combo >= 10', () => {
+  assert.equal(isFeverTriggered(0), false);
+  assert.equal(isFeverTriggered(9), false);
+  assert.equal(isFeverTriggered(10), true);
+  assert.equal(isFeverTriggered(14), true);
+});
+
+test('Arcade: calculateHitScore computes combo and Fever multipliers', () => {
+  // Base 100, combo 1 (1x), no fever -> 100
+  assert.equal(calculateHitScore(100, 1, false), 100);
+  // Base 100, combo 4 (2x), no fever -> 200
+  assert.equal(calculateHitScore(100, 4, false), 200);
+  // Base 100, combo 7 (3x), no fever -> 300
+  assert.equal(calculateHitScore(100, 7, false), 300);
+  // Base 100, combo 10 (4x), FEVER ACTIVE (3x) -> 100 * 4 * 3 = 1200
+  assert.equal(calculateHitScore(100, 10, true), 1200);
+});
+
+test('Arcade: processMissGrace handles 1.5s grace window', () => {
+  // Miss occurs when combo is 5, grace is set to 1.5s, delta 0.5s -> still 5, grace 1.0s
+  const step1 = processMissGrace(5, 1.5, 0.5);
+  assert.equal(step1.newCombo, 5);
+  assert.equal(step1.newGrace, 1.0);
+  assert.equal(step1.resetOccurred, false);
+
+  // Time runs out -> resets combo to 0
+  const step2 = processMissGrace(5, 0.3, 0.5);
+  assert.equal(step2.newCombo, 0);
+  assert.equal(step2.newGrace, 0);
+  assert.equal(step2.resetOccurred, true);
+});
+
+test('Arcade: shouldDropDataShard has 30% threshold', () => {
+  assert.equal(shouldDropDataShard(0.15), true);
+  assert.equal(shouldDropDataShard(0.30), true);
+  assert.equal(shouldDropDataShard(0.31), false);
+  assert.equal(shouldDropDataShard(0.90), false);
 });

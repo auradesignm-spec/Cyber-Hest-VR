@@ -43,6 +43,9 @@ interface HUDOverlayProps {
   score: number;
   overclockCombo?: number;
   isOverclockActive?: boolean;
+  isFeverMode?: boolean;
+  multiplier?: number;
+  highScore?: number;
   isMuted: boolean;
   onToggleMute: () => void;
   onOpenManual: () => void;
@@ -70,6 +73,9 @@ export const HUDOverlay: React.FC<HUDOverlayProps> = ({
   score,
   overclockCombo = 0,
   isOverclockActive = false,
+  isFeverMode = false,
+  multiplier = 1,
+  highScore = 0,
   isMuted,
   onToggleMute,
   onOpenManual,
@@ -184,11 +190,16 @@ export const HUDOverlay: React.FC<HUDOverlayProps> = ({
 
           <div className="h-4 w-px bg-slate-700/80" />
 
-          {/* Overclock Combo */}
-          {isOverclockActive ? (
-            <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-amber-400/20 text-amber-300 border border-amber-400/80 font-black text-xs shadow-[0_0_12px_rgba(245,158,11,0.6)] animate-bounce">
+          {/* Overclock & Fever Mode Combo */}
+          {isFeverMode ? (
+            <div className="flex items-center gap-1 px-3 py-1 rounded-lg bg-gradient-to-r from-amber-500/30 to-pink-500/30 text-amber-300 border border-amber-400 font-black text-xs shadow-[0_0_16px_rgba(245,158,11,0.8)] animate-pulse">
               <Zap className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-              <span>OVERCLOCK x2!</span>
+              <span>🔥 FEVER 3x! ({overclockCombo})</span>
+            </div>
+          ) : isOverclockActive || overclockCombo >= 3 ? (
+            <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-400/20 text-cyan-300 border border-cyan-400/80 font-black text-xs shadow-[0_0_12px_rgba(6,182,212,0.6)]">
+              <Zap className="w-3.5 h-3.5 fill-cyan-400 text-cyan-400" />
+              <span>COMBO x{overclockCombo} (x{multiplier})</span>
             </div>
           ) : overclockCombo > 0 ? (
             <div className="text-xs font-mono font-bold text-cyan-300">
@@ -373,7 +384,7 @@ export const HUDOverlay: React.FC<HUDOverlayProps> = ({
         {!isCollapsed && (
           <div className="w-full p-3 px-4.5 rounded-2xl bg-[#020611]/85 border border-cyan-500/40 backdrop-blur-xl shadow-[0_0_25px_rgba(0,240,255,0.15)] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
             {/* Table Team Intercom */}
-            <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={onTriggerTeamShout}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-400/50 font-black shrink-0 transition-all cursor-pointer shadow-sm"
@@ -391,14 +402,14 @@ export const HUDOverlay: React.FC<HUDOverlayProps> = ({
 
             {/* Desktop hint - changes dynamically per Phase */}
             {!vrActive && (
-              <div className="text-[11px] text-slate-300 hidden md:block font-bold">
+              <div className="text-[11px] text-cyan-200/80 hidden xl:block font-bold text-center px-2 whitespace-nowrap">
                 {combatPhase === 'decoding'
                   ? isArabic
-                    ? '🎯 أطلق الليزر على شارة الإجابة الصحيحة لفتح درع الخادم'
-                    : '🎯 Click mouse to shoot laser at the correct target badge'
+                    ? '🎯 أطلق الليزر على شارة الإجابة الصحيحة'
+                    : '🎯 Click mouse to shoot target badge'
                   : isArabic
-                    ? '⚡ احمِ قلب الخادم! أطلق الليزر على الحزم الخبيثة المهاجمة فوراً!'
-                    : '⚡ DEFEND CORE! Intercept and blast incoming malware packets!'}
+                    ? '⚡ احمِ قلب الخادم من الحزم الخبيثة!'
+                    : '⚡ Blast incoming malware packets!'}
               </div>
             )}
 

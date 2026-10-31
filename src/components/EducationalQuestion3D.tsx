@@ -369,29 +369,29 @@ export const EducationalQuestion3D: React.FC<EducationalQuestion3DProps> = ({
   const isArabic = language === 'ar';
   const boardTexture = useQuestionBoardTexture(question, questionIndex, totalQuestions, isArabic);
 
-  // Distribute 3 solution option cards along X: [-1.8, 0, 1.8] at Y: 1.0, Z: -4.0
+  // Distribute 3 solution option cards along X: [-2.35, 0, 2.35] at Y: 1.0, Z: -5.0
   const optionPositions: [number, number, number][] = useMemo(() => {
     const count = question.options.length;
     if (count === 3) {
       return [
-        [-1.8, 1.0, -4.0],
-        [0.0, 1.0, -4.0],
-        [1.8, 1.0, -4.0],
+        [-2.35, 1.0, -5.0],
+        [0.0, 1.0, -5.0],
+        [2.35, 1.0, -5.0],
       ];
     }
     // Fallback for 4 options
     return [
-      [-2.1, 1.0, -4.0],
-      [-0.7, 1.0, -4.0],
-      [0.7, 1.0, -4.0],
-      [2.1, 1.0, -4.0],
+      [-2.7, 1.0, -5.0],
+      [-0.9, 1.0, -5.0],
+      [0.9, 1.0, -5.0],
+      [2.7, 1.0, -5.0],
     ];
   }, [question.options.length]);
 
   return (
     <group name="EducationalQuestionRig">
-      {/* 1. HIGH-ALTITUDE QUESTION BOARD (Y: 3.5m, Z: -5.0m) */}
-      <group position={[0, 3.5, -5.0]}>
+      {/* 1. HIGH-ALTITUDE QUESTION BOARD (Y: 3.65m, Z: -5.0m) */}
+      <group position={[0, 3.65, -5.0]}>
         {/* Solid #020813 Backplate */}
         <mesh castShadow receiveShadow>
           <boxGeometry args={[4.8, 1.25, 0.1]} />

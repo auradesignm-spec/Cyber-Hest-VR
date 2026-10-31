@@ -36,6 +36,10 @@ interface VRPlayerProps {
   language?: Language;
   activeTargets?: TargetNodeInfo[];
   onTargetLockChanged?: (targetId: string | number | null) => void;
+  combo?: number;
+  multiplier?: number;
+  isFeverMode?: boolean;
+  onBlasterMuzzlesUpdated?: (muzzles: [number, number, number][]) => void;
 }
 
 export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
@@ -50,6 +54,10 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
       language = 'en',
       activeTargets = [],
       onTargetLockChanged,
+      combo = 0,
+      multiplier = 1,
+      isFeverMode = false,
+      onBlasterMuzzlesUpdated,
     },
     ref
   ) => {
@@ -193,8 +201,12 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
         }
       }
 
-      // Desktop blasters smooth aiming interpolation
+      // Desktop blasters smooth aiming interpolation and dynamic camera tracking
       if (!isInVR && desktopGunsRef.current) {
+        desktopGunsRef.current.position.x = camera.position.x;
+        desktopGunsRef.current.position.y = camera.position.y - 0.65;
+        desktopGunsRef.current.position.z = camera.position.z - 0.5;
+
         const targetRotX = -pointer.y * 0.35;
         const targetRotY = -pointer.x * 0.55;
         desktopGunsRef.current.rotation.x = THREE.MathUtils.lerp(
@@ -207,6 +219,23 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
           targetRotY,
           0.18
         );
+      }
+
+      // Track muzzle world positions for magnetic data shard suction
+      if (onBlasterMuzzlesUpdated) {
+        const m1 = new THREE.Vector3();
+        const m2 = new THREE.Vector3();
+        if (isInVR) {
+          if (rightControllerState?.object) rightControllerState.object.getWorldPosition(m1);
+          if (leftControllerState?.object) leftControllerState.object.getWorldPosition(m2);
+        } else {
+          if (rightGunMuzzleRef.current) rightGunMuzzleRef.current.getWorldPosition(m1);
+          if (leftGunMuzzleRef.current) leftGunMuzzleRef.current.getWorldPosition(m2);
+        }
+        onBlasterMuzzlesUpdated([
+          [m1.x, m1.y, m1.z],
+          [m2.x, m2.y, m2.z],
+        ]);
       }
     });
 
@@ -309,6 +338,9 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
                 isRight
                 chargeLevel={chargeLevel}
                 isLocked={lockedTargetId !== null}
+                combo={combo}
+                multiplier={multiplier}
+                isFeverMode={isFeverMode}
               />
             </group>
           </primitive>
@@ -322,6 +354,9 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
                 isRight={false}
                 chargeLevel={chargeLevel}
                 isLocked={lockedTargetId !== null}
+                combo={combo}
+                multiplier={multiplier}
+                isFeverMode={isFeverMode}
               />
             </group>
             {/* 3D Holographic Wristband HUD attached to off-hand controller in VR */}
@@ -332,6 +367,9 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
               scenarioId={scenarioId}
               isInVR={true}
               language={language}
+              combo={combo}
+              multiplier={multiplier}
+              isFeverMode={isFeverMode}
             />
           </primitive>
         )}
@@ -350,6 +388,9 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
                   isRight
                   chargeLevel={chargeLevel}
                   isLocked={lockedTargetId !== null}
+                  combo={combo}
+                  multiplier={multiplier}
+                  isFeverMode={isFeverMode}
                 />
                 <object3D ref={rightGunMuzzleRef} position={[0, 0.04, -0.35]} />
               </group>
@@ -364,6 +405,9 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
                   isRight={false}
                   chargeLevel={chargeLevel}
                   isLocked={lockedTargetId !== null}
+                  combo={combo}
+                  multiplier={multiplier}
+                  isFeverMode={isFeverMode}
                 />
                 <object3D ref={leftGunMuzzleRef} position={[0, 0.04, -0.35]} />
               </group>
@@ -377,6 +421,9 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
               scenarioId={scenarioId}
               isInVR={false}
               language={language}
+              combo={combo}
+              multiplier={multiplier}
+              isFeverMode={isFeverMode}
             />
           </>
         )}
@@ -392,7 +439,14 @@ function recoilOffset(recoil: number) {
 /**
  * Procedural 3D OLED Display Texture for Blaster Top Surface
  */
-function useBlasterOLEDTexture(chargeLevel: number, isLocked: boolean, color: string) {
+function useBlasterOLEDTexture(
+  chargeLevel: number,
+  isLocked: boolean,
+  color: string,
+  combo = 0,
+  multiplier = 1,
+  isFeverMode = false
+) {
   return useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 256;
@@ -405,19 +459,36 @@ function useBlasterOLEDTexture(chargeLevel: number, isLocked: boolean, color: st
       ctx.fillRect(0, 0, 256, 128);
 
       // Neon outer frame
-      ctx.strokeStyle = color;
+      const frameColor = isFeverMode ? '#f59e0b' : color;
+      ctx.strokeStyle = frameColor;
       ctx.lineWidth = 4;
       ctx.strokeRect(4, 4, 248, 120);
 
       // Status Bar
-      ctx.fillStyle = isLocked ? '#10b981' : color;
-      ctx.font = 'bold 22px "JetBrains Mono", monospace';
-      ctx.fillText(isLocked ? '[ LOCK-ON ]' : '[ ARMED ]', 16, 32);
+      if (isFeverMode) {
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = 'bold 20px "JetBrains Mono", monospace';
+        ctx.fillText('[ 🔥 FEVER 3X ]', 16, 32);
+      } else if (combo > 1) {
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = 'bold 20px "JetBrains Mono", monospace';
+        ctx.fillText(`[ COMBO x${combo} ]`, 16, 32);
+      } else {
+        ctx.fillStyle = isLocked ? '#10b981' : color;
+        ctx.font = 'bold 22px "JetBrains Mono", monospace';
+        ctx.fillText(isLocked ? '[ LOCK-ON ]' : '[ ARMED ]', 16, 32);
+      }
 
-      // Voltage readouts
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = 'bold 16px "JetBrains Mono", monospace';
-      ctx.fillText('240V // COOLDOWN', 16, 56);
+      // Secondary readout
+      ctx.fillStyle = isFeverMode ? '#ec4899' : '#94a3b8';
+      ctx.font = 'bold 15px "JetBrains Mono", monospace';
+      if (isFeverMode) {
+        ctx.fillText('MAX SURGE // 300%', 16, 56);
+      } else if (combo > 1) {
+        ctx.fillText(`MULTIPLIER: x${multiplier}`, 16, 56);
+      } else {
+        ctx.fillText('240V // READY', 16, 56);
+      }
 
       // Capacitor Bar Track
       ctx.fillStyle = '#1e293b';
@@ -425,7 +496,7 @@ function useBlasterOLEDTexture(chargeLevel: number, isLocked: boolean, color: st
 
       // Segmented Energy Fill
       const pct = Math.max(0, Math.min(1, chargeLevel));
-      ctx.fillStyle = pct > 0.6 ? (isLocked ? '#10b981' : color) : '#f59e0b';
+      ctx.fillStyle = isFeverMode ? '#f59e0b' : pct > 0.6 ? (isLocked ? '#10b981' : color) : '#f59e0b';
       ctx.fillRect(16, 72, 224 * pct, 22);
 
       // Battery Segments Divider
@@ -448,7 +519,7 @@ function useBlasterOLEDTexture(chargeLevel: number, isLocked: boolean, color: st
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.needsUpdate = true;
     return texture;
-  }, [chargeLevel, isLocked, color]);
+  }, [chargeLevel, isLocked, color, combo, multiplier, isFeverMode]);
 }
 
 /**
@@ -459,8 +530,11 @@ const CyberBlasterModel: React.FC<{
   isRight: boolean;
   chargeLevel?: number;
   isLocked?: boolean;
-}> = ({ color, isRight, chargeLevel = 1.0, isLocked = false }) => {
-  const oledTexture = useBlasterOLEDTexture(chargeLevel, isLocked, color);
+  combo?: number;
+  multiplier?: number;
+  isFeverMode?: boolean;
+}> = ({ color, isRight, chargeLevel = 1.0, isLocked = false, combo = 0, multiplier = 1, isFeverMode = false }) => {
+  const oledTexture = useBlasterOLEDTexture(chargeLevel, isLocked, color, combo, multiplier, isFeverMode);
 
   return (
     <group scale={[0.85, 0.85, 0.85]}>

@@ -14,6 +14,9 @@ interface HUD3DProps {
   scenarioId: ScenarioId;
   isInVR: boolean;
   language?: Language;
+  combo?: number;
+  multiplier?: number;
+  isFeverMode?: boolean;
 }
 
 export const HUD3D: React.FC<HUD3DProps> = ({
@@ -23,6 +26,9 @@ export const HUD3D: React.FC<HUD3DProps> = ({
   scenarioId,
   isInVR,
   language = 'en',
+  combo = 0,
+  multiplier = 1,
+  isFeverMode = false,
 }) => {
   const isArabic = language === 'ar';
 
@@ -112,13 +118,46 @@ export const HUD3D: React.FC<HUD3DProps> = ({
       ctx.fillStyle = '#00f0ff';
       ctx.fillText(`${score} PTS`, 280, 204);
 
-      // 3. Shield Battery Gauge
+      // 3. Dynamic Combo Meter & Fever Mode Display
       ctx.fillStyle = '#94a3b8';
       ctx.font = `bold 14px ${fontFam}`;
-      ctx.fillText(isArabic ? 'مكثف الدرع: 100% [نشط]' : 'SHIELD CAPACITOR: 100% [ONLINE]', 24, 252);
-      ctx.fillStyle = '#0284c7';
-      for (let i = 0; i < 10; i++) {
-        ctx.fillRect(24 + i * 46, 264, 40, 10);
+
+      if (isFeverMode) {
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillText(
+          isArabic ? '🔥 وضع الحماس نشط: مضاعف 3x! 🔥' : '🔥 FEVER SURGE: 3x SCORE ACTIVE! 🔥',
+          24,
+          252
+        );
+        // Blazing Fever Bars
+        for (let i = 0; i < 10; i++) {
+          ctx.fillStyle = i % 2 === 0 ? '#f59e0b' : '#ec4899';
+          ctx.fillRect(24 + i * 46, 264, 40, 10);
+        }
+      } else if (combo > 1) {
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillText(
+          isArabic
+            ? `تسلسل الضربات: ${combo} [مضاعف x${multiplier}]`
+            : `COMBO STREAK: x${combo} [x${multiplier} MULTIPLIER]`,
+          24,
+          252
+        );
+        // Progressive Combo Streak Blocks
+        for (let i = 0; i < 10; i++) {
+          ctx.fillStyle = i < combo ? '#06b6d4' : '#1e293b';
+          ctx.fillRect(24 + i * 46, 264, 40, 10);
+        }
+      } else {
+        ctx.fillText(
+          isArabic ? 'مكثف السلاح: 100% [جاهز لتسلسل الضربات]' : 'ENERGY CAPACITOR: 100% [READY FOR COMBO]',
+          24,
+          252
+        );
+        ctx.fillStyle = '#0284c7';
+        for (let i = 0; i < 10; i++) {
+          ctx.fillRect(24 + i * 46, 264, 40, 10);
+        }
       }
 
       // Tech micro-footer
@@ -131,7 +170,7 @@ export const HUD3D: React.FC<HUD3DProps> = ({
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.needsUpdate = true;
     return texture;
-  }, [health, timeRemaining, score, threatInfo, isArabic]);
+  }, [health, timeRemaining, score, threatInfo, isArabic, combo, multiplier, isFeverMode]);
 
   // Position:
   // In VR, mounted on left controller wrist

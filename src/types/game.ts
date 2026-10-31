@@ -134,6 +134,7 @@ export interface LaserShot {
   direction: [number, number, number];
   color: string;
   createdAt: number;
+  isFever?: boolean;
 }
 
 export interface DataPacketInstance {
@@ -148,5 +149,49 @@ export interface DataPacketInstance {
   targetY: number;
   targetZ: number;
   active: boolean;
+}
+
+export interface ScorePopup {
+  id: string;
+  text: string;
+  position: [number, number, number];
+  color: string;
+  scale: number;
+  createdAt: number;
+  duration?: number;
+}
+
+export interface DataShard {
+  id: string;
+  position: [number, number, number];
+  velocity: [number, number, number];
+  collected: boolean;
+  createdAt: number;
+}
+
+export interface ArcadeState {
+  combo: number;
+  multiplier: number;
+  isFeverMode: boolean;
+  feverTimeLeft: number;
+  missGraceTimeLeft: number;
+  highScore: number;
+  shardsCollected: number;
+}
+
+export type PowerUpType = 'rapid_fire' | 'emp_bomb' | 'plasma_beam';
+
+export interface PowerUpOrb {
+  id: string;
+  type: PowerUpType;
+  position: [number, number, number];
+  createdAt: number;
+  duration: number; // 4000ms despawn
+  collected: boolean;
+}
+
+export interface ActivePowerUp {
+  type: PowerUpType;
+  endTime: number;
 }
 

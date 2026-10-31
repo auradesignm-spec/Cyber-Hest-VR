@@ -198,37 +198,37 @@ export const PacketSwarm = forwardRef<PacketSwarmHandle, PacketSwarmProps>(
       const vectorType = Math.floor(Math.random() * 5);
 
       if (vectorType === 0) {
-        // 1. High Ceiling Dive-bomb: Drops from overhead ceiling ventilation
+        // 1. High Ceiling Dive-bomb: Drops from overhead ceiling ventilation in combat sector
         inactivePacket.x = (Math.random() - 0.5) * 3.6;
         inactivePacket.y = 3.3 + Math.random() * 0.6;
-        inactivePacket.z = -1.5 - Math.random() * 2.0;
+        inactivePacket.z = -23.0 - Math.random() * 4.0;
       } else if (vectorType === 1) {
         // 2. High Left Rafters: Sweeps inward from upper left cable tray
-        inactivePacket.x = -3.2 - Math.random() * 1.0;
-        inactivePacket.y = 2.4 + Math.random() * 0.9;
-        inactivePacket.z = -0.5 - Math.random() * 2.5;
+        inactivePacket.x = -3.4 - Math.random() * 1.0;
+        inactivePacket.y = 2.6 + Math.random() * 0.8;
+        inactivePacket.z = -22.0 - Math.random() * 5.0;
       } else if (vectorType === 2) {
         // 3. High Right Rafters: Sweeps inward from upper right cable tray
-        inactivePacket.x = 3.2 + Math.random() * 1.0;
-        inactivePacket.y = 2.4 + Math.random() * 0.9;
-        inactivePacket.z = -0.5 - Math.random() * 2.5;
+        inactivePacket.x = 3.4 + Math.random() * 1.0;
+        inactivePacket.y = 2.6 + Math.random() * 0.8;
+        inactivePacket.z = -22.0 - Math.random() * 5.0;
       } else if (vectorType === 3) {
         // 4. Deep Rear Tunnel: Rushes forward directly from the back cyber corridor
-        inactivePacket.x = (Math.random() - 0.5) * 2.4;
-        inactivePacket.y = 1.0 + Math.random() * 1.6;
-        inactivePacket.z = -6.2;
+        inactivePacket.x = (Math.random() - 0.5) * 2.8;
+        inactivePacket.y = 1.4 + Math.random() * 1.4;
+        inactivePacket.z = -35.0;
       } else {
         // 5. Low Floor Flank Crawlers: Skims along the server rack floors
         const isLeft = Math.random() < 0.5;
-        inactivePacket.x = (isLeft ? -1 : 1) * (2.6 + Math.random() * 1.0);
-        inactivePacket.y = 0.35 + Math.random() * 0.45;
-        inactivePacket.z = 0.5 + Math.random() * 1.5;
+        inactivePacket.x = (isLeft ? -1 : 1) * (2.8 + Math.random() * 1.0);
+        inactivePacket.y = 0.45 + Math.random() * 0.45;
+        inactivePacket.z = -21.0 - Math.random() * 4.0;
       }
 
-      // Exact target: Central Victim Device at [0, 0.8, -4.5]
+      // Exact target: Central Victim Device Core at [0, 1.5, -30]
       inactivePacket.targetX = (Math.random() - 0.5) * 0.4;
-      inactivePacket.targetY = 0.8 + (Math.random() - 0.5) * 0.3;
-      inactivePacket.targetZ = -4.5;
+      inactivePacket.targetY = 1.5 + (Math.random() - 0.5) * 0.3;
+      inactivePacket.targetZ = -30.0;
 
       const dx = inactivePacket.targetX - inactivePacket.x;
       const dy = inactivePacket.targetY - inactivePacket.y;

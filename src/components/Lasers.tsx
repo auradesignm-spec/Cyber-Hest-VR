@@ -12,7 +12,8 @@ export interface LaserHandle {
     origin: THREE.Vector3,
     direction: THREE.Vector3,
     color?: string,
-    side?: 'left' | 'right' | 'desktop'
+    side?: 'left' | 'right' | 'desktop',
+    isFever?: boolean
   ) => void;
 }
 
@@ -29,6 +30,7 @@ interface ActiveBolt {
   color: string;
   distanceTraveled: number;
   maxDistance: number;
+  isFever: boolean;
 }
 
 const MAX_BOLTS = 24;
@@ -40,9 +42,10 @@ const _up = new THREE.Vector3(0, 1, 0);
 
 interface LasersProps {
   onBoltHit?: (position: THREE.Vector3, color: string) => void;
+  isFeverMode?: boolean;
 }
 
-export const Lasers = forwardRef<LaserHandle, LasersProps>(({ onBoltHit }, ref) => {
+export const Lasers = forwardRef<LaserHandle, LasersProps>(({ onBoltHit, isFeverMode }, ref) => {
   const meshCoreRef = useRef<THREE.InstancedMesh>(null);
   const meshGlowRef = useRef<THREE.InstancedMesh>(null);
   const boltsRef = useRef<ActiveBolt[]>([]);
@@ -65,6 +68,7 @@ export const Lasers = forwardRef<LaserHandle, LasersProps>(({ onBoltHit }, ref) 
       color: '#00f0ff',
       distanceTraveled: 0,
       maxDistance: 25.0,
+      isFever: false,
     }));
   }, []);
 
@@ -93,7 +97,7 @@ export const Lasers = forwardRef<LaserHandle, LasersProps>(({ onBoltHit }, ref) 
 
   // Fire bolt API
   useImperativeHandle(ref, () => ({
-    fireBolt: (origin: THREE.Vector3, direction: THREE.Vector3, color = '#00f0ff') => {
+    fireBolt: (origin: THREE.Vector3, direction: THREE.Vector3, color = '#00f0ff', _side = 'right', isFever = false) => {
       const pool = boltsRef.current;
       const bolt = pool.find((b) => !b.active);
       if (!bolt) return;
@@ -107,9 +111,10 @@ export const Lasers = forwardRef<LaserHandle, LasersProps>(({ onBoltHit }, ref) 
       bolt.vy = normDir.y * BOLT_SPEED;
       bolt.vz = normDir.z * BOLT_SPEED;
       bolt.dir.copy(normDir);
-      bolt.color = color;
+      bolt.color = isFever || isFeverMode ? '#f59e0b' : color;
       bolt.distanceTraveled = 0;
       bolt.maxDistance = 28.0;
+      bolt.isFever = isFever || !!isFeverMode;
     },
   }));
 
@@ -159,7 +164,9 @@ export const Lasers = forwardRef<LaserHandle, LasersProps>(({ onBoltHit }, ref) 
           _dummy.quaternion.setFromRotationMatrix(_orientation);
           // Cylinder geometry default is Y-axis, rotate 90 deg around X to face trajectory
           _dummy.rotateX(Math.PI / 2);
-          _dummy.scale.set(1, 1, 1);
+          // 3x Laser thickness during Fever Mode!
+          const thick = b.isFever ? 3.0 : 1.0;
+          _dummy.scale.set(thick, thick, b.isFever ? 1.3 : 1.0);
           _dummy.updateMatrix();
 
           coreMesh.setMatrixAt(i, _dummy.matrix);

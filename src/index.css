@@ -11,3 +11,7 @@ code, kbd, samp, pre, .font-mono {
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
 }
 
+.font-orbitron {
+  font-family: 'Orbitron', 'JetBrains Mono', monospace;
+}
+
