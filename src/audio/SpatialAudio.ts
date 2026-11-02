@@ -205,6 +205,63 @@ export class SpatialAudioEngine {
   }
 
   /**
+   * Laser Impact Zap: short energy-impact transient synced to real hit points.
+   * Layer 1: square-wave sweep 1200->160Hz (energy discharge)
+   * Layer 2: high-passed noise crackle (electric sparkle)
+   * Throttled (60ms) so rapid fire never stacks into a buzz.
+   */
+  private lastImpactZapAt = 0;
+  public playImpactZap(x?: number, y?: number, z?: number) {
+    if (this.muted) return;
+    const now = performance.now();
+    if (now - this.lastImpactZapAt < 60) return;
+    this.lastImpactZapAt = now;
+
+    const ctx = this.initContext();
+    if (!ctx || !this.masterGain) return;
+
+    try {
+      const t = ctx.currentTime;
+
+      // Layer 1: sharp discharge zap
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(1200, t);
+      osc.frequency.exponentialRampToValueAtTime(160, t + 0.07);
+      gain.gain.setValueAtTime(0.16, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(t);
+      osc.stop(t + 0.09);
+
+      // Layer 2: subtle electric crackle (filtered noise burst)
+      const dur = 0.06;
+      const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) {
+        data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+      }
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'highpass';
+      filter.frequency.value = 1600;
+      const gain2 = ctx.createGain();
+      gain2.gain.setValueAtTime(0.05, t);
+      gain2.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      src.connect(filter);
+      filter.connect(gain2);
+      gain2.connect(this.masterGain);
+      src.start(t);
+      src.stop(t + dur);
+    } catch {
+      // safety
+    }
+  }
+
+  /**
    * Packet Explosion: Low-pass filtered white noise punch with sub-bass 40Hz kick
    * Supports 3D spatial positioning via x, y, z coordinates!
    */

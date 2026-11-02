@@ -19,6 +19,7 @@ export interface TargetNodeInfo {
 
 export interface VRPlayerHandle {
   triggerHeavyRumble: () => void;
+  triggerImpactHaptic?: (side?: 'left' | 'right' | 'desktop') => void;
   getMuzzlePositions: () => [THREE.Vector3, THREE.Vector3];
 }
 
@@ -123,12 +124,24 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
       }
     };
 
-    // Expose heavy rumble and muzzles
+    // Expose heavy rumble, light impact haptic and muzzles
     useImperativeHandle(ref, () => ({
       triggerHeavyRumble: () => {
         if (session && session.inputSources) {
           session.inputSources.forEach((source) => {
             triggerHaptic(source, 1.0, 400);
+          });
+        }
+      },
+      // Short, subtle hit-confirmation haptic (localized, VR-safe: no strong shake)
+      triggerImpactHaptic: (side: 'left' | 'right' | 'desktop' = 'right') => {
+        if (isInVR && session && session.inputSources) {
+          session.inputSources.forEach((source) => {
+            const handed = (source as { handedness?: string })?.handedness;
+            // Fire on the matching hand only; desktop is handled by audio
+            if (side === 'desktop' || !handed || handed === side) {
+              triggerHaptic(source, 0.45, 45);
+            }
           });
         }
       },

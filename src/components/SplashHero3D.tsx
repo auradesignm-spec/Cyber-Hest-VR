@@ -275,7 +275,7 @@ export const SplashHero3D: React.FC<SplashHero3DProps> = ({
 
     // CTA Pulse scaling
     if (ctaMeshRef.current) {
-      const isTargeted = lockedTargetId === 'init_defense' || hoveredButton === 'initialize';
+      const isTargeted = lockedTargetId === 'btn-init-defense' || hoveredButton === 'initialize';
       const targetScale = isTargeted ? 1.15 : 1.0 + Math.sin(time * 3.5) * 0.02;
       ctaMeshRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, 1), 0.15);
     }

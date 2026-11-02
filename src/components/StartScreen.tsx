@@ -155,7 +155,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col justify-between p-4 md:p-6 bg-[#020611]/85 backdrop-blur-md select-none overflow-y-auto no-game-shoot"
+      className="fixed inset-0 z-50 flex flex-col justify-between p-4 md:p-6 bg-[#020611]/85 backdrop-blur-md select-none overflow-y-auto pointer-events-none"
       dir={isArabic ? 'rtl' : 'ltr'}
       style={{
         fontFamily: isArabic
@@ -167,7 +167,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(0,240,255,0.03)_1px,transparent_1px)] bg-[size:100%_4px] opacity-40" />
 
       {/* 1. TOP HEADER HUD */}
-      <header className="w-full max-w-6xl mx-auto flex items-center justify-between py-3 px-5 rounded-2xl bg-[#03091e]/90 border border-cyan-500/50 shadow-[0_0_30px_rgba(0,240,255,0.2)] backdrop-blur-xl relative z-10">
+      <header className="pointer-events-auto no-game-shoot w-full max-w-6xl mx-auto flex items-center justify-between py-3 px-5 rounded-2xl bg-[#03091e]/90 border border-cyan-500/50 shadow-[0_0_30px_rgba(0,240,255,0.2)] backdrop-blur-xl relative z-10">
         {/* Brand */}
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-[#04112e] border border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(0,240,255,0.4)] shrink-0">
@@ -283,7 +283,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({
               <button
                 type="button"
                 onClick={onGoToScenarioSelect}
-                className="group relative p-6 rounded-2xl bg-gradient-to-b from-cyan-950/70 to-[#020a1c] border-2 border-cyan-400 hover:border-cyan-300 text-left shadow-[0_0_25px_rgba(0,240,255,0.3)] hover:shadow-[0_0_35px_rgba(0,240,255,0.5)] transition-all cursor-pointer transform hover:-translate-y-1 flex flex-col justify-between"
+                className="pointer-events-auto no-game-shoot group relative p-6 rounded-2xl bg-gradient-to-b from-cyan-950/70 to-[#020a1c] border-2 border-cyan-400 hover:border-cyan-300 text-left shadow-[0_0_25px_rgba(0,240,255,0.3)] hover:shadow-[0_0_35px_rgba(0,240,255,0.5)] transition-all cursor-pointer transform hover:-translate-y-1 flex flex-col justify-between"
               >
                 <div className="flex items-center justify-between w-full mb-3">
                   <div className="p-3 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-400">
@@ -309,7 +309,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({
               <button
                 type="button"
                 onClick={onStartTraining}
-                className="group relative p-6 rounded-2xl bg-gradient-to-b from-indigo-950/70 to-[#020a1c] border-2 border-indigo-400/70 hover:border-indigo-300 text-left shadow-[0_0_20px_rgba(99,102,241,0.25)] hover:shadow-[0_0_30px_rgba(99,102,241,0.45)] transition-all cursor-pointer transform hover:-translate-y-1 flex flex-col justify-between"
+                className="pointer-events-auto no-game-shoot group relative p-6 rounded-2xl bg-gradient-to-b from-indigo-950/70 to-[#020a1c] border-2 border-indigo-400/70 hover:border-indigo-300 text-left shadow-[0_0_20px_rgba(99,102,241,0.25)] hover:shadow-[0_0_30px_rgba(99,102,241,0.45)] transition-all cursor-pointer transform hover:-translate-y-1 flex flex-col justify-between"
               >
                 <div className="flex items-center justify-between w-full mb-3">
                   <div className="p-3 rounded-xl bg-indigo-500/20 text-indigo-300 border border-indigo-400">
@@ -335,7 +335,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({
               <button
                 type="button"
                 onClick={onOpenManual}
-                className="group relative p-6 rounded-2xl bg-gradient-to-b from-amber-950/70 to-[#020a1c] border-2 border-amber-400/70 hover:border-amber-300 text-left shadow-[0_0_20px_rgba(245,158,11,0.25)] hover:shadow-[0_0_30px_rgba(245,158,11,0.45)] transition-all cursor-pointer transform hover:-translate-y-1 flex flex-col justify-between"
+                className="pointer-events-auto no-game-shoot group relative p-6 rounded-2xl bg-gradient-to-b from-amber-950/70 to-[#020a1c] border-2 border-amber-400/70 hover:border-amber-300 text-left shadow-[0_0_20px_rgba(245,158,11,0.25)] hover:shadow-[0_0_30px_rgba(245,158,11,0.45)] transition-all cursor-pointer transform hover:-translate-y-1 flex flex-col justify-between"
               >
                 <div className="flex items-center justify-between w-full mb-3">
                   <div className="p-3 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-400">
@@ -384,7 +384,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({
                   <div
                     key={sc.id}
                     onClick={() => onSelectScenario(sc.id)}
-                    className={`relative p-6 rounded-2xl bg-[#03091e]/90 border-2 transition-all cursor-pointer flex flex-col justify-between min-h-[360px] ${
+                    className={`pointer-events-auto no-game-shoot relative p-6 rounded-2xl bg-[#03091e]/90 border-2 transition-all cursor-pointer flex flex-col justify-between min-h-[360px] ${
                       isSelected
                         ? `${sc.border} ${sc.glow} scale-[1.02] bg-gradient-to-b ${sc.color}`
                         : 'border-slate-800 hover:border-slate-600 hover:bg-[#030d24]'
@@ -450,7 +450,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({
               <button
                 type="button"
                 onClick={onBackToSplash}
-                className="px-5 py-2.5 rounded-xl bg-[#03091e] border border-slate-700 hover:border-cyan-400 text-slate-300 hover:text-white text-xs font-black transition-all cursor-pointer flex items-center gap-2"
+                className="pointer-events-auto no-game-shoot px-5 py-2.5 rounded-xl bg-[#03091e] border border-slate-700 hover:border-cyan-400 text-slate-300 hover:text-white text-xs font-black transition-all cursor-pointer flex items-center gap-2"
               >
                 {isArabic ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}
                 <span>{t('backToSplash')}</span>
@@ -459,7 +459,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({
               <button
                 type="button"
                 onClick={onGoToDifficultySelect}
-                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-teal-400 text-slate-950 text-xs font-black shadow-[0_0_20px_rgba(0,240,255,0.6)] hover:shadow-[0_0_30px_rgba(0,240,255,0.8)] transition-all cursor-pointer flex items-center gap-2"
+                className="pointer-events-auto no-game-shoot px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-teal-400 text-slate-950 text-xs font-black shadow-[0_0_20px_rgba(0,240,255,0.6)] hover:shadow-[0_0_30px_rgba(0,240,255,0.8)] transition-all cursor-pointer flex items-center gap-2"
               >
                 <span>{t('nextDifficulty')}</span>
                 {isArabic ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
@@ -492,7 +492,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({
                   <div
                     key={diff.id}
                     onClick={() => onSelectDifficulty(diff.id)}
-                    className={`relative p-6 rounded-2xl bg-[#03091e]/90 border-2 transition-all cursor-pointer flex flex-col justify-between min-h-[360px] ${
+                    className={`pointer-events-auto no-game-shoot relative p-6 rounded-2xl bg-[#03091e]/90 border-2 transition-all cursor-pointer flex flex-col justify-between min-h-[360px] ${
                       isSelected
                         ? `${diff.border} shadow-[0_0_25px_rgba(0,240,255,0.35)] scale-[1.02] bg-gradient-to-b ${diff.color}`
                         : 'border-slate-800 hover:border-slate-600 hover:bg-[#030d24]'
@@ -555,7 +555,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({
               <button
                 type="button"
                 onClick={onBackToScenarioSelect}
-                className="px-5 py-2.5 rounded-xl bg-[#03091e] border border-slate-700 hover:border-cyan-400 text-slate-300 hover:text-white text-xs font-black transition-all cursor-pointer flex items-center gap-2"
+                className="pointer-events-auto no-game-shoot px-5 py-2.5 rounded-xl bg-[#03091e] border border-slate-700 hover:border-cyan-400 text-slate-300 hover:text-white text-xs font-black transition-all cursor-pointer flex items-center gap-2"
               >
                 {isArabic ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}
                 <span>{t('backToScenarios')}</span>
@@ -564,7 +564,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({
               <button
                 type="button"
                 onClick={onStartGame}
-                className="px-8 py-3 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 text-slate-950 text-sm font-black shadow-[0_0_25px_rgba(245,158,11,0.8)] hover:shadow-[0_0_35px_rgba(245,158,11,1.0)] transition-all cursor-pointer flex items-center gap-2 transform hover:scale-105"
+                className="pointer-events-auto no-game-shoot px-8 py-3 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 text-slate-950 text-sm font-black shadow-[0_0_25px_rgba(245,158,11,0.8)] hover:shadow-[0_0_35px_rgba(245,158,11,1.0)] transition-all cursor-pointer flex items-center gap-2 transform hover:scale-105"
               >
                 <Zap className="w-4 h-4" />
                 <span>{t('launchMission')}</span>
@@ -580,7 +580,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({
         <button
           type="button"
           onClick={onEnterVR}
-          className="px-5 py-2.5 rounded-xl bg-[#03091e]/90 border-2 border-cyan-400/80 hover:border-cyan-300 text-cyan-300 hover:text-white font-black text-xs transition-all cursor-pointer flex items-center gap-2 shadow-[0_0_15px_rgba(0,240,255,0.3)] group"
+          className="pointer-events-auto no-game-shoot px-5 py-2.5 rounded-xl bg-[#03091e]/90 border-2 border-cyan-400/80 hover:border-cyan-300 text-cyan-300 hover:text-white font-black text-xs transition-all cursor-pointer flex items-center gap-2 shadow-[0_0_15px_rgba(0,240,255,0.3)] group"
         >
           <Glasses className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
           <span>{t('enterVR')}</span>
@@ -589,7 +589,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({
         <button
           type="button"
           onClick={onPlayDesktop}
-          className="px-5 py-2.5 rounded-xl bg-[#03091e]/90 border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white font-black text-xs transition-all cursor-pointer flex items-center gap-2 shadow-sm"
+          className="pointer-events-auto no-game-shoot px-5 py-2.5 rounded-xl bg-[#03091e]/90 border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white font-black text-xs transition-all cursor-pointer flex items-center gap-2 shadow-sm"
         >
           <Monitor className="w-4 h-4 text-slate-400" />
           <span>{t('playDesktop')}</span>

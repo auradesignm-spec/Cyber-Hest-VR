@@ -58,6 +58,8 @@ const _camDir = new THREE.Vector3();
 const _menuRay = new THREE.Ray();
 const _menuSphere = new THREE.Sphere(new THREE.Vector3(), 0.85);
 const _normRayDir = new THREE.Vector3();
+const _hitPoint = new THREE.Vector3();
+const _hitNormal = new THREE.Vector3();
 
 /**
  * Scene Camera Rig: Coordinates the "Distant Core -> Forward Warp -> Close Combat" spatial mechanic
@@ -188,6 +190,10 @@ function MainGameApp() {
   const [overclockCombo, setOverclockCombo] = useState(0);
   const [isFeverMode, setIsFeverMode] = useState(false);
   const missGraceRef = useRef(0);
+  const pendingDecodeRef = useRef(false);
+  const lastMenuActivationRef = useRef<{id: string; at: number} | null>(null);
+  const gameStatusRef = useRef<GameStatus>(gameStatus);
+  useEffect(() => { gameStatusRef.current = gameStatus }, [gameStatus]);
   const [scorePopups, setScorePopups] = useState<ScorePopup[]>([]);
   const [dataShards, setDataShards] = useState<DataShard[]>([]);
   const [powerUpOrbs, setPowerUpOrbs] = useState<PowerUpOrb[]>([]);
@@ -457,6 +463,7 @@ function MainGameApp() {
       setPowerUpOrbs([]);
       setActivePowerUp(null);
       missGraceRef.current = 0;
+      pendingDecodeRef.current = false;
       setEducationalFeedback(null);
       setLastQuestionResult(null);
       setPhaseBanner(null);
@@ -666,10 +673,25 @@ function MainGameApp() {
           setAlarmActive(false);
           spatialAudio.playVictoryFanfare();
 
+          // Scenario-specific purge messages          let purgeEn, purgeAr;
+          if (scenarioId === 'scenario-1') {
+            // Hex Breach: Network mapping insights            purgeEn = 'THREAT PURGED! NETWORK MAP UPDATED: All inbound hex-pattern packets neutralized. Core topology visible.';
+            purgeAr = 'تم تطهير التهديد! خريطة الشبكة محدثة: تم تحييد كل الحزم ذات أنماط الهكس. أصبحت topology النواة ظاهرة.';
+          } else if (scenarioId === 'scenario-2') {
+            // Payload Purge: Ransomware identification reinforced            purgeEn = 'THREAT PURGED! RANSOMWARE PATTERN IDENTIFIED: AES-256 countermeasure validated. Defense posture reinforced.';
+            purgeAr = 'تم تطهير التهديد! تم التعرف على نمط برمجية الفدية: تم التحقق من الدرع AES-256. تم تعزيز وضع الدفاع.';
+          } else if (scenarioId === 'scenario-3') {
+            // DDoS Subnet: Topology logged, EMP reserve noted            purgeEn = 'THREAT PURGED! SUBNET TOPOLOGY LOGGED: EMP reserve noted. Next intrusion will face pre-emptive shielding.';
+            purgeAr = 'تم تطهير التهديد! تم توثيق مخطط النطاق الفرعي: تم تسجيل احتياطي EMP. سيتعرض الاقتحام التالي لحماية استباقية.';
+          } else {
+            purgeEn = 'THREAT PURGED! WARPING BACK...';
+            purgeAr = 'تم تطهير التهديد! جاري الرجوع للنقطة الرئيسية...';
+          }
+
           setPhaseBanner({
             type: 'purge',
-            messageEn: 'THREAT PURGED! WARPING BACK...',
-            messageAr: 'تم تطهير التهديد! جاري الرجوع للنقطة الرئيسية...',
+            messageEn: purgeEn,
+            messageAr: purgeAr,
           });
 
           // 2. Animate camera rapidly warping BACKWARDS to original starting position (Z: 0.4)
@@ -704,8 +726,6 @@ function MainGameApp() {
                 setOverclockCombo(0);
                 setIsFeverMode(false);
                 spatialAudio.setFeverMode(false);
-                setEducationalFeedback(null);
-                setLastQuestionResult(null);
                 setTimeRemaining((prev) => Math.min(getInitialTimer(difficulty), prev + 25));
               }
             }
@@ -733,10 +753,12 @@ function MainGameApp() {
   // Phase 1 Option Shot (Shoot-to-Solve) with Forward Warp Dash Transition
   const handleOptionShot = useCallback(
     (optionId: string, position: [number, number, number]) => {
-      if (gameStatus !== 'playing' || combatPhase !== 'decoding' || isCombatWarping) return;
+      if (gameStatus !== 'playing' || combatPhase !== 'decoding' || isCombatWarping || pendingDecodeRef.current) return;
 
       const matchedOption = currentQuestion.options.find((opt: QuestionOption) => opt.id === optionId);
       const isCorrect = Boolean(matchedOption?.isCorrect);
+      const correctOption = currentQuestion.options.find(o => o.isCorrect);
+      if (!matchedOption || !correctOption) return;
       setLastQuestionResult({ optionId, isCorrect });
 
       if (isCorrect) {
@@ -745,44 +767,56 @@ function MainGameApp() {
         particlesRef.current?.spawnVoxelShatter(position[0], position[1], position[2], '#00FF66');
         setScore((prev) => prev + 500);
 
-        // 1. INSTANTLY hide all Question and Answer UI panels
-        setEducationalFeedback(null);
+        // ✓ Show correct explanation for 2 seconds before warping
+        setEducationalFeedback({
+          messageEn: `✓ DEPLOYED: ${matchedOption.labelEn} — ${matchedOption.explanationEn}`,
+          messageAr: `✓ تم التفعيل: ${matchedOption.labelAr} — ${matchedOption.explanationAr}`,
+          isCorrect: true,
+        });
+
+        // Wait 2s then start the forward warp
+        setTimeout(() => {
+          if (gameStatusRef.current !== 'playing') return;
+          setIsCombatWarping(true);
+          setCombatWarpDirection('forward');
+          setCombatWarpProgress(0);
+          spatialAudio.playWarpWhoosh(false);
+
+          const startTime = performance.now();
+          const duration = 1100;
+
+          const animateForwardWarp = (now: number) => {
+            const elapsed = now - startTime;
+            const p = Math.min(1.0, elapsed / duration);
+            setCombatWarpProgress(p);
+
+            if (p < 1.0) {
+              requestAnimationFrame(animateForwardWarp);
+            } else {
+              // Forward Dash reaches destination! Camera abruptly stops in front of the Core at Z: -20
+              setIsCombatWarping(false);
+              setCombatWarpDirection(null);
+              setCombatPhase('defense');
+              spatialAudio.playWarpDecelerate();
+              triggerHitStop(50);
+
+              // Red emergency lights trigger, and malware swarm spawns around this new deep-Z area
+              setAlarmActive(true);
+              spatialAudio.startAlarmSiren();
+
+              const packetCount = difficulty === 'easy' ? 6 : difficulty === 'medium' ? 8 : 10;
+              packetSwarmRef.current?.spawnPenaltyPackets(packetCount);
+
+              // Clean up feedback after warp completes
+              setTimeout(() => setEducationalFeedback(null), 1200);
+              pendingDecodeRef.current = false;
+            }
+          };
+
+          requestAnimationFrame(animateForwardWarp);
+        }, 2000);
+
         setLastQuestionResult(null);
-
-        // 2. The Forward Warp Dash Camera Animation: rapidly moves camera from Z: 0.4 to Z: -20
-        setIsCombatWarping(true);
-        setCombatWarpDirection('forward');
-        setCombatWarpProgress(0);
-        spatialAudio.playWarpWhoosh(false);
-
-        const startTime = performance.now();
-        const duration = 1100;
-
-        const animateForwardWarp = (now: number) => {
-          const elapsed = now - startTime;
-          const p = Math.min(1.0, elapsed / duration);
-          setCombatWarpProgress(p);
-
-          if (p < 1.0) {
-            requestAnimationFrame(animateForwardWarp);
-          } else {
-            // Forward Dash reaches destination! Camera abruptly stops in front of the Core at Z: -20
-            setIsCombatWarping(false);
-            setCombatWarpDirection(null);
-            setCombatPhase('defense');
-            spatialAudio.playWarpDecelerate();
-            triggerHitStop(50);
-
-            // Red emergency lights trigger, and malware swarm spawns around this new deep-Z area
-            setAlarmActive(true);
-            spatialAudio.startAlarmSiren();
-
-            const packetCount = difficulty === 'easy' ? 6 : difficulty === 'medium' ? 8 : 10;
-            packetSwarmRef.current?.spawnPenaltyPackets(packetCount);
-          }
-        };
-
-        requestAnimationFrame(animateForwardWarp);
       } else {
         spatialAudio.playErrorBuzzer();
         vrPlayerRef.current?.triggerHeavyRumble();
@@ -796,19 +830,25 @@ function MainGameApp() {
           setRedVignetteFlash(false);
         }, 350);
 
-        setHearts((prev) => {
-          const next = prev - 1;
-          if (next <= 0) {
-            spatialAudio.stopAlarmSiren();
-            setGameStatus('gameover');
-            return 0;
-          }
-          return next;
+        // ✗ Show wrong answer feedback with correct countermeasure + explanation for 4.5s
+        setEducationalFeedback({
+          messageEn: `✗ ${matchedOption.labelEn} was incorrect. Correct countermeasure: ${correctOption.labelEn} — ${correctOption.explanationEn}`,
+          messageAr: `✗ ${matchedOption.labelAr} كانت خاطئة. الحل الصحيح: ${correctOption.labelAr} — ${correctOption.explanationAr}`,
+          isCorrect: false,
         });
 
         setTimeout(() => {
           setLastQuestionResult(null);
-        }, 1200);
+          setHearts((prev) => {
+            const next = prev - 1;
+            if (next <= 0) {
+              spatialAudio.stopAlarmSiren();
+              setGameStatus('gameover');
+              return 0;
+            }
+            return next;
+          });
+        }, 4800);
       }
     },
     [gameStatus, combatPhase, currentQuestion, difficulty, isCombatWarping, triggerHitStop]
@@ -962,6 +1002,12 @@ function MainGameApp() {
   const handleMenuTargetHit = useCallback(
     (targetId: string | number) => {
       const idStr = String(targetId);
+      // 350ms same-id debounce — ignore repeat activation
+      const now = Date.now();
+      if (lastMenuActivationRef.current && idStr === lastMenuActivationRef.current.id && now - lastMenuActivationRef.current.at < 350) {
+        return; // silently ignore; avoid double-fire from VR select + R3F pointer
+      }
+      lastMenuActivationRef.current = { id: idStr, at: now };
       spatialAudio.playButtonBeep(680);
 
       if (idStr === 'btn-init-defense') {
@@ -1037,8 +1083,20 @@ function MainGameApp() {
           _menuSphere.radius = target.radius || 0.85;
 
           if (_menuRay.intersectsSphere(_menuSphere)) {
-            particlesRef.current?.spawnSparks(target.position[0], target.position[1], target.position[2], '#00f0ff');
-            particlesRef.current?.spawnVoxelShatter(target.position[0], target.position[1], target.position[2], '#00f0ff');
+            // Exact raycast hit point + surface normal for cinematic impact VFX
+            const hit = _menuRay.intersectSphere(_menuSphere, _hitPoint);
+            if (hit) {
+              _hitNormal.copy(hit).sub(_menuSphere.center).normalize();
+              particlesRef.current?.spawnLaserImpact(
+                hit.x, hit.y, hit.z,
+                _hitNormal.x, _hitNormal.y, _hitNormal.z,
+                '#00f0ff', 1.35
+              );
+              // shatter debris also erupts from the exact hit point
+              particlesRef.current?.spawnVoxelShatter(hit.x, hit.y, hit.z, '#00f0ff');
+            }
+            spatialAudio.playImpactZap(hit ? hit.x : undefined, hit ? hit.y : undefined, hit ? hit.z : undefined);
+            vrPlayerRef.current?.triggerImpactHaptic?.(side);
             handleMenuTargetHit(target.id);
             return;
           }
@@ -1053,6 +1111,17 @@ function MainGameApp() {
           _menuSphere.center.set(target.position[0], target.position[1], target.position[2]);
           _menuSphere.radius = target.radius || 0.45;
           if (_menuRay.intersectsSphere(_menuSphere)) {
+            const hit = _menuRay.intersectSphere(_menuSphere, _hitPoint);
+            if (hit) {
+              _hitNormal.copy(hit).sub(_menuSphere.center).normalize();
+              particlesRef.current?.spawnLaserImpact(
+                hit.x, hit.y, hit.z,
+                _hitNormal.x, _hitNormal.y, _hitNormal.z,
+                '#00f0ff', 1.0
+              );
+              spatialAudio.playImpactZap(hit.x, hit.y, hit.z);
+              vrPlayerRef.current?.triggerImpactHaptic?.(side);
+            }
             handleTrainingTargetHit(target.id, target.position);
           }
         }
@@ -1067,6 +1136,17 @@ function MainGameApp() {
           _menuSphere.center.set(orb.position[0], orb.position[1], orb.position[2]);
           _menuSphere.radius = 0.5;
           if (_menuRay.intersectsSphere(_menuSphere)) {
+            const hit = _menuRay.intersectSphere(_menuSphere, _hitPoint);
+            if (hit) {
+              _hitNormal.copy(hit).sub(_menuSphere.center).normalize();
+              particlesRef.current?.spawnLaserImpact(
+                hit.x, hit.y, hit.z,
+                _hitNormal.x, _hitNormal.y, _hitNormal.z,
+                boltColor, 1.3
+              );
+              spatialAudio.playImpactZap(hit.x, hit.y, hit.z);
+              vrPlayerRef.current?.triggerImpactHaptic?.(side);
+            }
             handleCollectPowerUp(orb.id, orb.type, orb.position);
             return;
           }
@@ -1075,7 +1155,16 @@ function MainGameApp() {
         // Check threat packets
         const hitResult = packetSwarmRef.current?.checkRayHit(hitOrigin, direction);
         if (hitResult?.hit && hitResult.position) {
-          particlesRef.current?.spawnSparks(hitResult.position.x, hitResult.position.y, hitResult.position.z, boltColor);
+          // Defense packets already return the exact colliding point; approximate
+          // the impact normal as opposing the incoming bolt ray direction.
+          _hitNormal.copy(_normRayDir).multiplyScalar(-1);
+          particlesRef.current?.spawnLaserImpact(
+            hitResult.position.x, hitResult.position.y, hitResult.position.z,
+            _hitNormal.x, _hitNormal.y, _hitNormal.z,
+            boltColor, 1.0
+          );
+          spatialAudio.playImpactZap(hitResult.position.x, hitResult.position.y, hitResult.position.z);
+          vrPlayerRef.current?.triggerImpactHaptic?.(side);
           missGraceRef.current = 0;
         } else {
           // Missed shot! Start 1.5-second miss grace window before combo resets
@@ -1092,8 +1181,20 @@ function MainGameApp() {
           _menuSphere.center.set(target.position[0], target.position[1], target.position[2]);
           _menuSphere.radius = target.radius || 0.75;
           if (_menuRay.intersectsSphere(_menuSphere)) {
+            // Visual collision feedback at the exact hit point, fully separated from
+            // handleOptionShot's gameplay state (no double selection triggers)
+            const hit = _menuRay.intersectSphere(_menuSphere, _hitPoint);
+            if (hit) {
+              _hitNormal.copy(hit).sub(_menuSphere.center).normalize();
+              particlesRef.current?.spawnLaserImpact(
+                hit.x, hit.y, hit.z,
+                _hitNormal.x, _hitNormal.y, _hitNormal.z,
+                '#00f0ff', 1.1
+              );
+              spatialAudio.playImpactZap(hit.x, hit.y, hit.z);
+              vrPlayerRef.current?.triggerImpactHaptic?.(side);
+            }
             handleOptionShot(String(target.id), target.position);
-            particlesRef.current?.spawnSparks(target.position[0], target.position[1], target.position[2], '#00f0ff');
           }
         }
       }
@@ -1143,7 +1244,7 @@ function MainGameApp() {
     try {
       spatialAudio.startAmbientHum();
       await xrStore.enterVR();
-      setGameStatus('playing');
+      initScenario();
     } catch (err) {
       console.warn('WebXR enterVR failed, launching Desktop Simulator fallback:', err);
       initScenario();
@@ -1367,6 +1468,7 @@ function MainGameApp() {
                   handleOptionShot(optionId, target?.position || [0, 1.0, -5.0]);
                 }}
                 lastFeedback={lastQuestionResult}
+                explanationFeedback={educationalFeedback}
               />
             </group>
 
@@ -1386,79 +1488,48 @@ function MainGameApp() {
         NON-BLOCKING SPATIAL HUD OVERLAY ON START (Allows full 3D shooting interaction)
       */}
       {gameStatus === 'start' && (
-        <div className="pointer-events-none fixed inset-0 z-30 flex flex-col justify-between p-4 md:p-6">
-          {/* Top Cyber Glass Header Bar */}
-          <div className="pointer-events-auto flex items-center justify-between bg-[#000000] border-2 border-[#00f0ff] px-5 py-3 rounded-2xl shadow-[0_0_25px_rgba(0,240,255,0.4)] mx-auto w-full max-w-5xl">
-            <div className="flex items-center space-x-3 rtl:space-x-reverse">
-              <div className="w-9 h-9 rounded-xl bg-[#000000] border-2 border-[#00f0ff] flex items-center justify-center text-[#00f0ff] shadow-[0_0_10px_rgba(0,240,255,0.4)]">
-                🛡️
-              </div>
-              <div>
-                <h1 className="text-sm md:text-base font-black tracking-widest text-[#ffffff] uppercase font-mono">
-                  CYBER HEIST: NODE DEFENDER <span className="text-[#00f0ff] text-xs font-black">V3.0 SOC</span>
-                </h1>
-                <p className="text-[11px] text-[#ffffff] font-mono font-bold tracking-wider">
-                  Asymmetric WebXR Defense // Shoot-to-Interact
-                </p>
-              </div>
-            </div>
-
-            {/* Center Hint */}
-            <div className="hidden md:flex items-center space-x-2 text-xs font-mono font-black text-[#ffffff] bg-[#000000] border-2 border-[#00f0ff] px-3.5 py-1.5 rounded-xl shadow-[0_0_15px_rgba(0,240,255,0.3)]">
-              <span>🎯</span>
-              <span>AIM & SHOOT 3D TARGETS TO SELECT</span>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="flex items-center space-x-2 rtl:space-x-reverse">
-              <button
-                onClick={() => setLanguage(isArabic ? 'en' : 'ar')}
-                className="no-game-shoot px-3 py-1.5 text-xs font-mono font-black bg-[#000000] hover:bg-[#00f0ff]/20 border-2 border-[#00f0ff] text-[#ffffff] rounded-xl transition shadow-[0_0_10px_rgba(0,240,255,0.3)] cursor-pointer"
-              >
-                {isArabic ? 'English' : 'عربي'}
-              </button>
-              <button
-                onClick={handleEnterVR}
-                className="no-game-shoot px-3.5 py-1.5 text-xs font-mono font-black bg-[#000000] hover:bg-[#00f0ff]/20 border-2 border-[#00f0ff] text-[#ffffff] rounded-xl transition shadow-[0_0_15px_rgba(0,240,255,0.5)] flex items-center space-x-1.5 cursor-pointer"
-              >
-                <span>🥽</span>
-                <span>VR Mode (Quest 3)</span>
-              </button>
-              <button
-                onClick={() => setIsManualOpen(true)}
-                className="no-game-shoot px-3 py-1.5 text-xs font-mono font-black bg-[#000000] hover:bg-[#00f0ff]/20 border-2 border-[#00f0ff] text-[#ffffff] rounded-xl transition shadow-[0_0_10px_rgba(0,240,255,0.3)] cursor-pointer"
-              >
-                📖 {isArabic ? 'الدليل' : 'Manual'}
-              </button>
-              <button
-                onClick={handleToggleMute}
-                className="no-game-shoot p-2 text-xs bg-[#000000] hover:bg-[#00f0ff]/20 border-2 border-[#00f0ff] text-[#ffffff] rounded-xl transition shadow-[0_0_10px_rgba(0,240,255,0.3)] cursor-pointer"
-              >
-                {isMuted ? '🔇' : '🔊'}
-              </button>
-            </div>
-          </div>
-
-          {/* Bottom Aim & Fire Directive */}
-          <div className="pointer-events-auto mx-auto bg-[#000000] border-2 border-[#00f0ff] px-6 py-2.5 rounded-full shadow-[0_0_25px_rgba(0,240,255,0.4)] text-center">
-            <p className="text-xs md:text-sm font-mono font-black text-[#ffffff] flex items-center justify-center space-x-2">
-              <span className="text-[#00f0ff] animate-pulse">⚡</span>
-              <span>
-                {cinematicStep === 'splash'
-                  ? isArabic
-                    ? 'أطلق الليزر على بطاقة [بدء الدفاع] أو [محاكاة التدريب]'
-                    : 'Shoot laser at [INITIALIZE DEFENSE] or [TRAINING SIMULATION] target'
-                  : cinematicStep === 'scenario_select'
-                  ? isArabic
-                    ? 'أطلق الليزر على أي بطاقة سيناريو لاختيار المهمة'
-                    : 'Shoot laser at any scenario card (Hex Breach, Payload Purge, DDoS Blackhole)'
-                  : isArabic
-                  ? 'أطلق الليزر على مستوى الصعوبة ثم أطلق على [بدء المهمة]'
-                  : 'Shoot laser at difficulty tier card, then shoot [LAUNCH MISSION]'}
-              </span>
-            </p>
-          </div>
-        </div>
+        <StartScreen
+          difficulty={difficulty}
+          onSelectDifficulty={(d) => {
+            setDifficulty(d);
+            spatialAudio.playButtonBeep(720);
+          }}
+          selectedScenario={selectedScenarioOption}
+          onSelectScenario={(sc) => {
+            setSelectedScenarioOption(sc);
+            spatialAudio.playButtonBeep(700);
+          }}
+          cinematicStep={cinematicStep}
+          onGoToScenarioSelect={() => {
+            spatialAudio.playWhoosh();
+            setCinematicStep('scenario_select');
+          }}
+          onGoToDifficultySelect={() => {
+            spatialAudio.playWhoosh();
+            setCinematicStep('difficulty_select');
+          }}
+          onBackToSplash={() => {
+            spatialAudio.playWhoosh();
+            setCinematicStep('splash');
+          }}
+          onBackToScenarioSelect={() => {
+            spatialAudio.playWhoosh();
+            setCinematicStep('scenario_select');
+          }}
+          onStartGame={() => {
+            spatialAudio.playWhoosh();
+            initScenario(selectedScenarioOption === 'random' ? 'scenario-1' : selectedScenarioOption, difficulty);
+          }}
+          onEnterVR={handleEnterVR}
+          onPlayDesktop={() => {
+            spatialAudio.playWhoosh();
+            initScenario(selectedScenarioOption === 'random' ? 'scenario-1' : selectedScenarioOption, difficulty);
+          }}
+          onStartTraining={handleStartTraining}
+          onOpenManual={() => setIsManualOpen(true)}
+          isMuted={isMuted}
+          onToggleMute={handleToggleMute}
+        />
       )}
 
       {/* In-Game Desktop HUD Overlay */}

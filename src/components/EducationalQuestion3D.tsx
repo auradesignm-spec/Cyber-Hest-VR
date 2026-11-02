@@ -17,6 +17,7 @@ interface EducationalQuestion3DProps {
   lockedTargetId: string | number | null;
   onSelectOption: (optionId: string) => void;
   lastFeedback: { optionId: string; isCorrect: boolean } | null;
+  explanationFeedback: { messageEn: string; messageAr: string; isCorrect: boolean } | null;
 }
 
 /**
