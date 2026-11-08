@@ -25,7 +25,7 @@ export class SpatialAudioEngine {
       if (AudioCtx) {
         this.ctx = new AudioCtx();
         this.masterGain = this.ctx.createGain();
-        this.masterGain.gain.setValueAtTime(1.0, this.ctx.currentTime);
+        this.masterGain.gain.setValueAtTime(0.5, this.ctx.currentTime);
         this.masterGain.connect(this.ctx.destination);
       }
     }
@@ -38,7 +38,7 @@ export class SpatialAudioEngine {
   public setMuted(muted: boolean) {
     this.muted = muted;
     if (this.masterGain && this.ctx) {
-      this.masterGain.gain.setValueAtTime(muted ? 0 : 1.0, this.ctx.currentTime);
+      this.masterGain.gain.setValueAtTime(muted ? 0 : 0.5, this.ctx.currentTime);
     }
   }
 
@@ -56,7 +56,7 @@ export class SpatialAudioEngine {
 
     try {
       this.ambientGain = ctx.createGain();
-      this.ambientGain.gain.setValueAtTime(0.08, ctx.currentTime);
+      this.ambientGain.gain.setValueAtTime(0.035, ctx.currentTime);
       this.ambientGain.connect(this.masterGain);
 
       // 60Hz Mains hum oscillator

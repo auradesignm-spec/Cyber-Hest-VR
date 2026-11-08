@@ -26,6 +26,7 @@ export interface PacketSwarmHandle {
   destroyAll: () => void;
   spawnPenaltyPackets: (count?: number) => void;
   getActiveCount: () => number;
+  hasPendingSpawns: () => boolean;
 }
 
 const MAX_PACKETS = 60;
@@ -320,6 +321,8 @@ export const PacketSwarm = forwardRef<PacketSwarmHandle, PacketSwarmProps>(
       getActiveCount: () => {
         return packetsRef.current.filter((p) => p.active).length;
       },
+
+      hasPendingSpawns: () => spawnedInWaveRef.current < waveTargetCountRef.current,
     }));
 
     // Animation loop: update threat capsule, dual cores, and revolving energy rings

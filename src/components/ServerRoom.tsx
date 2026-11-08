@@ -1024,6 +1024,10 @@ export const ServerRoom: React.FC<ServerRoomProps> = ({ isEmergency = false, isF
           sits at Z ~ -30, which used to fall outside the modelled room and left a
           black void behind the HUD. This section keeps the world solid there. */}
       <group name="DeepDefenseCorridor" position={[0, 0, -27]}>
+        {/* Local lighting: the bay sat outside the main rig and read as a void */}
+        <pointLight position={[0, 3.9, 3]} intensity={26} distance={20} color="#22d3ee" />
+        <pointLight position={[0, 2.4, -7]} intensity={18} distance={18} color="#0ea5e9" />
+        <pointLight position={[0, 0.8, 12]} intensity={12} distance={14} color="#0f172a" />
         <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
           <planeGeometry args={[28, 30]} />
           <meshStandardMaterial

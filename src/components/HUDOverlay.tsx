@@ -58,6 +58,7 @@ interface HUDOverlayProps {
   educationalFeedback?: { messageEn: string; messageAr: string; isCorrect: boolean } | null;
   phaseBanner?: { type: 'alarm' | 'purge' | 'overclock'; messageEn: string; messageAr: string } | null;
   vrActive: boolean;
+  threatsRemaining?: number;
 }
 
 export const HUDOverlay: React.FC<HUDOverlayProps> = ({
@@ -88,6 +89,7 @@ export const HUDOverlay: React.FC<HUDOverlayProps> = ({
   educationalFeedback,
   phaseBanner,
   vrActive,
+  threatsRemaining = 0,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(
     () => typeof window !== 'undefined' && window.innerWidth < 760
@@ -185,6 +187,20 @@ export const HUDOverlay: React.FC<HUDOverlayProps> = ({
               </span>
             )}
           </div>
+
+          {combatPhase === 'defense' && (
+            <div
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border-2 font-black text-xs ${
+                threatsRemaining === 0
+                  ? 'border-[#00f0ff] text-[#00f0ff] animate-pulse'
+                  : 'border-[#ef4444] text-[#ffffff]'
+              }`}
+            >
+              <span className="text-[#ef4444]">●</span>
+              <span>{isArabic ? 'تهديدات' : 'THREATS'}</span>
+              <span className="text-[#00f0ff]">{threatsRemaining}</span>
+            </div>
+          )}
 
           <div className="h-4 w-px bg-[#00f0ff]/50" />
 

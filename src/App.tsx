@@ -190,6 +190,7 @@ function MainGameApp() {
   const [maxHearts] = useState(8);
   const [score, setScore] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(90);
+  const [threatsRemaining, setThreatsRemaining] = useState(0);
 
   // Warp-To-Defend Camera State Machine
   const [isCombatWarping, setIsCombatWarping] = useState(false);
@@ -651,6 +652,8 @@ function MainGameApp() {
     vrPlayerRef.current?.triggerHeavyRumble();
     spatialAudio.playErrorBuzzer();
 
+    setThreatsRemaining((prev) => Math.max(0, prev - 1));
+
     setHearts((prev) => {
       const next = prev - 1;
       if (next <= 0) {
@@ -665,12 +668,99 @@ function MainGameApp() {
     });
   }, [gameStatus, triggerHitStop]);
 
+  // Wave-clear transition. Called by the kill handler and by the defence watchdog:
+  // a cleared wave used to leave the player sitting in an empty room.
+  const advanceAfterWaveRef = useRef<(() => void) | null>(null);
+  const emptySinceRef = useRef(0);
+
+  const advanceAfterWave = useCallback(() => {
+    spatialAudio.stopAlarmSiren();
+    setAlarmActive(false);
+    spatialAudio.playVictoryFanfare();
+    setPhaseBanner({
+      type: 'purge',
+      messageEn: 'THREAT PURGED! WARPING BACK...',
+      messageAr: 'تم تطهير التهديد! جاري الرجوع للنقطة الرئيسية...',
+    });
+
+    setIsCombatWarping(true);
+    setCombatWarpDirection('backward');
+    setCombatWarpProgress(0);
+    spatialAudio.playWarpWhoosh(true);
+
+    const startTime = performance.now();
+    const duration = 1000;
+
+    const animateBackWarp = (now: number) => {
+      const p = Math.min(1, (now - startTime) / duration);
+      setCombatWarpProgress(p);
+
+      if (p < 1) {
+        requestAnimationFrame(animateBackWarp);
+        return;
+      }
+
+      spatialAudio.playWarpDecelerate();
+      setIsCombatWarping(false);
+      setCombatWarpDirection(null);
+      setPhaseBanner(null);
+
+      const isLastQuestion = questionIndex >= currentQuestions.length - 1;
+      if (isLastQuestion) {
+        setCombatPhase('decoding');
+        setGameStatus('victory');
+      } else {
+        setQuestionIndex((prev) => prev + 1);
+        setCombatPhase('decoding');
+        setOverclockCombo(0);
+        setIsFeverMode(false);
+        spatialAudio.setFeverMode(false);
+        setTimeRemaining((prev) => Math.min(getInitialTimer(difficulty), prev + 35));
+      }
+    };
+
+    requestAnimationFrame(animateBackWarp);
+  }, [questionIndex, currentQuestions.length, difficulty, getInitialTimer]);
+
+  useEffect(() => {
+    advanceAfterWaveRef.current = advanceAfterWave;
+  }, [advanceAfterWave]);
+
+  // Defence watchdog: if the room is empty (no threats, nothing left to spawn)
+  // for more than a moment, finish the wave instead of freezing.
+  useEffect(() => {
+    if (gameStatus !== 'playing' || combatPhase !== 'defense' || isCombatWarping) return;
+
+    const id = setInterval(() => {
+      const swarm = packetSwarmRef.current;
+      if (!swarm || waveClearGuardRef.current) return;
+
+      if (swarm.getActiveCount() > 0 || swarm.hasPendingSpawns()) {
+        emptySinceRef.current = 0;
+        return;
+      }
+
+      if (emptySinceRef.current === 0) {
+        emptySinceRef.current = Date.now();
+        return;
+      }
+      if (Date.now() - emptySinceRef.current < 700) return;
+
+      emptySinceRef.current = 0;
+      waveClearGuardRef.current = true;
+      advanceAfterWaveRef.current?.();
+    }, 250);
+
+    return () => clearInterval(id);
+  }, [gameStatus, combatPhase, isCombatWarping]);
+
   // Threat Packet Destroyed in Phase 2
   const handlePacketDestroyed = useCallback(
     (packetId: number, x: number, y: number, z: number) => {
       particlesRef.current?.spawnVoxelShatter(x, y, z, '#ef4444');
       triggerHitStop(40);
       missGraceRef.current = 0;
+      setThreatsRemaining((prev) => Math.max(0, prev - 1));
 
       // Arcade Combo & Fever Mode Logic
       setOverclockCombo((prev) => {
@@ -726,6 +816,8 @@ function MainGameApp() {
         const remaining = packetSwarmRef.current?.getActiveCount() || 0;
         if (remaining === 0 && combatPhase === 'defense' && !isCombatWarping) {
           waveClearGuardRef.current = true;
+          advanceAfterWaveRef.current?.();
+          return;
           // 1. Play System Secure victory fanfare
           spatialAudio.stopAlarmSiren();
           setAlarmActive(false);
@@ -864,7 +956,13 @@ function MainGameApp() {
               setAlarmActive(true);
               spatialAudio.startAlarmSiren();
 
-              const packetCount = difficulty === 'easy' ? 3 : difficulty === 'medium' ? 4 : 6;
+              // Each incident ships a bigger wave: the defence phase escalates
+              // through the scenario instead of repeating a fixed handful.
+              const packetCount = Math.min(
+                9,
+                (difficulty === 'easy' ? 3 : difficulty === 'medium' ? 4 : 6) + questionIndex
+              );
+              setThreatsRemaining(packetCount);
               packetSwarmRef.current?.spawnPenaltyPackets(packetCount);
 
               // Clean up feedback after warp completes
@@ -1769,6 +1867,7 @@ function MainGameApp() {
           timeRemaining={timeRemaining}
           hearts={hearts}
           maxHearts={maxHearts}
+          threatsRemaining={threatsRemaining}
           score={score}
           overclockCombo={overclockCombo}
           isOverclockActive={overclockCombo > 1}
