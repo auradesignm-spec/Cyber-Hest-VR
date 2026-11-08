@@ -88,6 +88,8 @@ function SceneCamera({
   isScreenShake?: boolean;
 }) {
   const { camera } = useThree();
+  // Smooth, decaying shake envelope (random per-frame jitter read as vibration)
+  const shakeRef = useRef({ phase: 0, amp: 0 });
 
   useFrame((_, delta) => {
     camera.getWorldDirection(_camDir);
@@ -100,14 +102,15 @@ function SceneCamera({
       _camDir.z
     );
 
-    // Screen shake on hit-stop / impact
-    if (isScreenShake) {
-      camera.position.x = (Math.random() - 0.5) * 0.08;
-      camera.position.y = 1.6 + (Math.random() - 0.5) * 0.08;
-    } else {
-      camera.position.x = THREE.MathUtils.damp(camera.position.x, 0, 14, delta);
-      camera.position.y = THREE.MathUtils.damp(camera.position.y, 1.6, 14, delta);
-    }
+    // Screen shake on impact: a damped oscillation instead of frame randomness,
+    // so repeated hits read as one impact impulse rather than constant jitter.
+    const shake = shakeRef.current;
+    shake.phase += delta * 38;
+    shake.amp = isScreenShake
+      ? Math.min(0.03, shake.amp + delta * 0.5)
+      : THREE.MathUtils.damp(shake.amp, 0, 10, delta);
+    camera.position.x = Math.sin(shake.phase) * shake.amp;
+    camera.position.y = 1.6 + Math.cos(shake.phase * 1.37) * shake.amp * 0.65;
 
     let targetZ = 0.4;
     let targetLookZ = -10.0;
@@ -124,12 +127,12 @@ function SceneCamera({
         targetZ = THREE.MathUtils.lerp(0.4, -20.0, eased);
         targetLookZ = -30.0;
         // Hyper-dash FOV dilation (stretching from 72 up to 115!)
-        targetFov = 72 + velocityPeak * 43;
+        targetFov = 72 + velocityPeak * 24;
       } else if (combatWarpDirection === 'backward') {
         // Reverse Warp back to original station
         targetZ = THREE.MathUtils.lerp(-20.0, 0.4, eased);
         targetLookZ = -10.0;
-        targetFov = 72 + velocityPeak * 36;
+        targetFov = 72 + velocityPeak * 20;
       }
     } else if (combatPhase === 'defense') {
       // Stationed right in front of Core at Z: -20 (Core at Z: -30)

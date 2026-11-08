@@ -46,15 +46,15 @@ export const useViewAspect = (): number => {
  */
 export const getAnswerLayout = (count: number, aspect: number = getViewAspect()): AnswerSlot[] => {
   const narrow = aspect < 1.15;
-  const radius = narrow ? 3.4 : 4.0;
+  const radius = narrow ? 3.4 : 3.9;
   const angles =
     count <= 3
       ? narrow
         ? [-17, 0, 17]
-        : [-34, 0, 34]
+        : [-30, 0, 30]
       : narrow
         ? [-25, -9, 9, 25]
-        : [-46, -15, 15, 46];
+        : [-42, -14, 14, 42];
 
   return angles.slice(0, count).map((deg) => {
     const rad = (deg * Math.PI) / 180;

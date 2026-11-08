@@ -217,15 +217,55 @@ function useOptionBadgeTexture(
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
-      // Truncate / wrap if needed
-      const maxTextWidth = 440;
+      // Fit-to-card: shrink, then wrap, then ellipsis. Long option labels used to
+      // run past the card edge and looked like missing letters.
+      const maxTextWidth = 448;
+      const measure = (text: string, size: number) => {
+        ctx.font = `900 ${size}px ${fontFamily}`;
+        return ctx.measureText(text).width;
+      };
+
       let fontSize = 34;
-      ctx.font = `900 ${fontSize}px ${fontFamily}`;
-      while (ctx.measureText(labelText).width > maxTextWidth && fontSize > 18) {
+      while (measure(labelText, fontSize) > maxTextWidth && fontSize > 20) {
         fontSize -= 2;
-        ctx.font = `900 ${fontSize}px ${fontFamily}`;
       }
-      ctx.fillText(labelText, 256, 120);
+
+      let labelLines = [labelText];
+      if (measure(labelText, fontSize) > maxTextWidth) {
+        const words = labelText.split(' ');
+        const wrapped: string[] = [];
+        let current = '';
+        for (const word of words) {
+          const candidate = current ? `${current} ${word}` : word;
+          if (current && measure(candidate, fontSize) > maxTextWidth) {
+            wrapped.push(current);
+            current = word;
+          } else {
+            current = candidate;
+          }
+        }
+        if (current) wrapped.push(current);
+
+        labelLines = wrapped.slice(0, 2);
+        const overflowed = wrapped.length > 2;
+        const trim = (text: string) => {
+          let out = text;
+          while (out.length > 1 && measure(`${out}…`, fontSize) > maxTextWidth) {
+            out = out.slice(0, -1);
+          }
+          return `${out.trim()}…`;
+        };
+        if (overflowed) {
+          labelLines[labelLines.length - 1] = trim(labelLines[labelLines.length - 1]);
+        }
+        labelLines = labelLines.map((line) => (measure(line, fontSize) > maxTextWidth ? trim(line) : line));
+      }
+
+      labelLines.forEach((line, lineIdx) => {
+        ctx.font = `900 ${fontSize}px ${fontFamily}`;
+        const y = labelLines.length === 1 ? 120 : 102 + lineIdx * (fontSize + 8);
+        ctx.fillText(line, 256, y);
+      });
 
       // 5. Status / Target Hint at Bottom
       ctx.font = `900 20px ${fontFamily}`;

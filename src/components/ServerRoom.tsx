@@ -1025,7 +1025,7 @@ export const ServerRoom: React.FC<ServerRoomProps> = ({ isEmergency = false, isF
           black void behind the HUD. This section keeps the world solid there. */}
       <group name="DeepDefenseCorridor" position={[0, 0, -27]}>
         <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-          <planeGeometry args={[13, 20]} />
+          <planeGeometry args={[28, 30]} />
           <meshStandardMaterial
             color="#050b16"
             roughness={0.34}
@@ -1036,34 +1036,34 @@ export const ServerRoom: React.FC<ServerRoomProps> = ({ isEmergency = false, isF
             envMapIntensity={1.2}
           />
         </mesh>
-        <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 4.2, 0]}>
-          <planeGeometry args={[13, 20]} />
+        <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 4.6, 0]}>
+          <planeGeometry args={[28, 30]} />
           <meshStandardMaterial color="#020612" roughness={0.7} metalness={0.5} />
         </mesh>
-        {[-6.4, 6.4].map((x, i) => (
+        {[-13.8, 13.8].map((x, i) => (
           <mesh
             key={`deep-wall-${i}`}
-            position={[x, 2.1, 0]}
+            position={[x, 2.4, 0]}
             rotation={[0, i === 0 ? Math.PI / 2 : -Math.PI / 2, 0]}
             receiveShadow
           >
-            <planeGeometry args={[20, 5]} />
+            <planeGeometry args={[30, 5.4]} />
             <meshStandardMaterial color="#030712" metalness={0.8} roughness={0.42} />
           </mesh>
         ))}
-        <mesh position={[0, 2.1, -9.6]}>
-          <planeGeometry args={[13, 5]} />
+        <mesh position={[0, 2.4, -14.6]}>
+          <planeGeometry args={[28, 5.4]} />
           <meshStandardMaterial color="#030712" metalness={0.8} roughness={0.42} />
         </mesh>
         {[-1.5, 0, 1.5].map((x, i) => (
           <mesh key={`deep-conduit-${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[x, 0.02, 0]}>
-            <planeGeometry args={[0.07, 18]} />
+            <planeGeometry args={[0.07, 26]} />
             <meshStandardMaterial color="#0284c7" emissive="#00f0ff" emissiveIntensity={0.55} />
           </mesh>
         ))}
         {[-4.6, 4.6].map((x, i) => (
           <mesh key={`deep-strip-${i}`} position={[x, 3.4, 0]}>
-            <boxGeometry args={[0.06, 0.06, 18]} />
+            <boxGeometry args={[0.06, 0.06, 26]} />
             <meshBasicMaterial color="#00ffcc" toneMapped={false} />
           </mesh>
         ))}
