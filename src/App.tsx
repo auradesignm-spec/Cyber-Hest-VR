@@ -183,8 +183,8 @@ function MainGameApp() {
 
   // 2-Phase Gameplay Loop State: 'decoding' (Phase 1) vs 'defense' (Phase 2)
   const [combatPhase, setCombatPhase] = useState<CombatPhase>('decoding');
-  const [hearts, setHearts] = useState(5);
-  const [maxHearts] = useState(5);
+  const [hearts, setHearts] = useState(8);
+  const [maxHearts] = useState(8);
   const [score, setScore] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(90);
 
@@ -197,7 +197,11 @@ function MainGameApp() {
   const [overclockCombo, setOverclockCombo] = useState(0);
   const [isFeverMode, setIsFeverMode] = useState(false);
   const missGraceRef = useRef(0);
+  // Invulnerability window between core breaches (packets often arrive in clusters)
+  const lastBreachAtRef = useRef(0);
   const pendingDecodeRef = useRef(false);
+  // Prevents several simultaneous kills from firing the "wave cleared" warp twice
+  const waveClearGuardRef = useRef(false);
   const lastMenuActivationRef = useRef<{id: string; at: number} | null>(null);
   const gameStatusRef = useRef<GameStatus>(gameStatus);
   useEffect(() => { gameStatusRef.current = gameStatus }, [gameStatus]);
@@ -456,11 +460,12 @@ function MainGameApp() {
       }
 
       setScenarioId(nextId);
-      setHearts(5);
+      setHearts(8);
       setTimeRemaining(getInitialTimer(activeDiff));
       setGameStatus('playing');
       setCinematicStep('playing');
       setCombatPhase('decoding');
+      waveClearGuardRef.current = false;
       setIsCombatWarping(false);
       setCombatWarpProgress(0);
       setCombatWarpDirection(null);
@@ -605,6 +610,8 @@ function MainGameApp() {
           spatialAudio.stopAlarmSiren();
           spatialAudio.playErrorBuzzer();
           vrPlayerRef.current?.triggerHeavyRumble();
+          // Pull the camera back home so the result console is in front of the player
+          setCombatPhase('decoding');
           setGameStatus('gameover');
           return 0;
         }
@@ -618,6 +625,12 @@ function MainGameApp() {
   // Threat Packet Breach handler (Core Damage in Phase 2)
   const handlePacketBreach = useCallback(() => {
     if (gameStatus !== 'playing') return;
+
+    // A whole wave can reach the core in the same frame: without a short guard
+    // that drained every heart instantly and felt unfair.
+    const now = performance.now();
+    if (now - lastBreachAtRef.current < 850) return;
+    lastBreachAtRef.current = now;
 
     triggerHitStop(70);
     setOverclockCombo(0);
@@ -640,6 +653,8 @@ function MainGameApp() {
       if (next <= 0) {
         spatialAudio.stopAlarmSiren();
         spatialAudio.playErrorBuzzer();
+        // Pull the camera back home so the result console is in front of the player
+        setCombatPhase('decoding');
         setGameStatus('gameover');
         return 0;
       }
@@ -704,8 +719,10 @@ function MainGameApp() {
 
       // Check for Wave Clear (All Packets Eliminated)
       setTimeout(() => {
+        if (waveClearGuardRef.current) return;
         const remaining = packetSwarmRef.current?.getActiveCount() || 0;
         if (remaining === 0 && combatPhase === 'defense' && !isCombatWarping) {
+          waveClearGuardRef.current = true;
           // 1. Play System Secure victory fanfare
           spatialAudio.stopAlarmSiren();
           setAlarmActive(false);
@@ -757,6 +774,7 @@ function MainGameApp() {
 
               const isLastQuestion = questionIndex >= currentQuestions.length - 1;
               if (isLastQuestion) {
+                setCombatPhase('decoding');
                 setGameStatus('victory');
               } else {
                 setQuestionIndex((prev) => prev + 1);
@@ -835,6 +853,7 @@ function MainGameApp() {
               setIsCombatWarping(false);
               setCombatWarpDirection(null);
               setCombatPhase('defense');
+              waveClearGuardRef.current = false;
               spatialAudio.playWarpDecelerate();
               triggerHitStop(50);
 
@@ -842,7 +861,7 @@ function MainGameApp() {
               setAlarmActive(true);
               spatialAudio.startAlarmSiren();
 
-              const packetCount = difficulty === 'easy' ? 4 : difficulty === 'medium' ? 6 : 8;
+              const packetCount = difficulty === 'easy' ? 3 : difficulty === 'medium' ? 5 : 7;
               packetSwarmRef.current?.spawnPenaltyPackets(packetCount);
 
               // Clean up feedback after warp completes
@@ -924,7 +943,7 @@ function MainGameApp() {
   // Start Training
   const handleStartTraining = useCallback(() => {
     setGameStatus('training');
-    setHearts(5);
+    setHearts(8);
     setTimeRemaining(999);
     setAlarmActive(false);
     spatialAudio.stopAlarmSiren();
@@ -1140,11 +1159,11 @@ function MainGameApp() {
   useEffect(() => {
     if (gameStatus !== 'playing' || combatPhase !== 'defense') return;
 
-    const firstSpawn = setTimeout(spawnHealthPickup, 3000);
+    const firstSpawn = setTimeout(spawnHealthPickup, 2000);
     const spawnTimer = setInterval(() => {
-      setHealthPickups((prev) => prev.filter((pickup) => Date.now() - pickup.createdAt < 22000));
+      setHealthPickups((prev) => prev.filter((pickup) => Date.now() - pickup.createdAt < 26000));
       spawnHealthPickup();
-    }, 11000);
+    }, 7000);
 
     return () => {
       clearTimeout(firstSpawn);

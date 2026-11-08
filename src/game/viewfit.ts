@@ -51,10 +51,10 @@ export const getAnswerLayout = (count: number, aspect: number = getViewAspect())
     count <= 3
       ? narrow
         ? [-17, 0, 17]
-        : [-40, 0, 40]
+        : [-34, 0, 34]
       : narrow
         ? [-25, -9, 9, 25]
-        : [-55, -18, 18, 55];
+        : [-46, -15, 15, 46];
 
   return angles.slice(0, count).map((deg) => {
     const rad = (deg * Math.PI) / 180;

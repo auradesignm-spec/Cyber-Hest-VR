@@ -122,9 +122,9 @@ export const HUDOverlay: React.FC<HUDOverlayProps> = ({
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(0,240,255,0.03)_1px,transparent_1px)] bg-[size:100%_4px] opacity-40" />
 
       {/* Top Header Bar */}
-      <div className="pointer-events-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 w-full max-w-5xl mx-auto relative z-10">
+      <div className="pointer-events-auto flex flex-wrap items-center justify-between gap-2 sm:gap-3 w-full max-w-7xl mx-auto relative z-10">
         {/* Sleek Top-Left Neon HP Bar & Core Status */}
-        <div className="flex items-center gap-3.5 p-2.5 px-3.5 sm:p-3 sm:px-5 rounded-2xl bg-[#000000] border-2 border-[#00f0ff] text-[#ffffff] shadow-[0_0_20px_rgba(0,240,255,0.4)] min-w-0">
+        <div className="flex items-center gap-3.5 p-2.5 px-3.5 sm:p-3 sm:px-5 rounded-2xl bg-[#000000] border-2 border-[#00f0ff] text-[#ffffff] shadow-[0_0_20px_rgba(0,240,255,0.4)] min-w-0 shrink-0">
           <div className="relative">
             <Shield className="w-5 h-5 text-[#00f0ff]" />
             {combatPhase === 'defense' && (
@@ -136,7 +136,7 @@ export const HUDOverlay: React.FC<HUDOverlayProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] sm:text-xs font-black tracking-wider text-[#ffffff] truncate max-w-[52vw] sm:max-w-none whitespace-nowrap">
+              <span className="text-[10px] sm:text-xs font-black tracking-wider text-[#ffffff] truncate max-w-[46vw] sm:max-w-[220px] whitespace-nowrap">
                 {isArabic ? scenarioTitles[scenarioId].ar : scenarioTitles[scenarioId].en}
               </span>
               <span className="text-[10px] font-mono font-black px-2 py-0.5 rounded border border-[#00f0ff] text-[#ffffff] bg-[#000000] shadow-[0_0_8px_rgba(0,240,255,0.4)] whitespace-nowrap shrink-0">
@@ -170,7 +170,7 @@ export const HUDOverlay: React.FC<HUDOverlayProps> = ({
         </div>
 
         {/* Center: Phase Indicator, Timer, Score, Overclock */}
-        <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-2.5 sm:px-5 rounded-2xl bg-[#000000] border-2 border-[#00f0ff] text-[#ffffff] shadow-[0_0_20px_rgba(0,240,255,0.4)] overflow-x-auto">
+        <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-2.5 sm:px-5 rounded-2xl bg-[#000000] border-2 border-[#00f0ff] text-[#ffffff] shadow-[0_0_20px_rgba(0,240,255,0.4)] shrink-0 flex-wrap">
           {/* Phase Badge */}
           <div className="flex items-center gap-1.5 font-black text-xs">
             {combatPhase === 'decoding' ? (
@@ -234,7 +234,7 @@ export const HUDOverlay: React.FC<HUDOverlayProps> = ({
         </div>
 
         {/* Right: Manual & Sound */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={onOpenManual}
             className="pointer-events-auto flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#000000] border-2 border-[#00f0ff] hover:bg-[#00f0ff]/20 text-[#ffffff] text-xs font-black transition-all cursor-pointer shadow-[0_0_15px_rgba(0,240,255,0.4)]"

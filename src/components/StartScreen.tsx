@@ -155,7 +155,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col justify-between p-4 md:p-6 bg-[#020611]/85 backdrop-blur-md select-none overflow-y-auto pointer-events-none"
+      className="fixed inset-0 z-50 flex flex-col justify-between p-4 md:p-6 bg-[#020611]/45 backdrop-blur-[2px] select-none overflow-y-auto pointer-events-none"
       dir={isArabic ? 'rtl' : 'ltr'}
       style={{
         fontFamily: isArabic

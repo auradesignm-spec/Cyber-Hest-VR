@@ -14,7 +14,7 @@ interface HealthPickupsProps {
   lockedTargetId: string | number | null;
 }
 
-export const MAX_HEALTH_PICKUPS = 2;
+export const MAX_HEALTH_PICKUPS = 3;
 
 const LABEL_CACHE: Record<string, THREE.CanvasTexture> = {};
 

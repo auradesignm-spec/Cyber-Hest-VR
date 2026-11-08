@@ -1020,6 +1020,65 @@ export const ServerRoom: React.FC<ServerRoomProps> = ({ isEmergency = false, isF
         frustumCulled={false}
       />
 
+      {/* Deep defence corridor: Phase 2 warps the camera to Z ~ -25 and the core
+          sits at Z ~ -30, which used to fall outside the modelled room and left a
+          black void behind the HUD. This section keeps the world solid there. */}
+      <group name="DeepDefenseCorridor" position={[0, 0, -27]}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+          <planeGeometry args={[13, 20]} />
+          <meshStandardMaterial
+            color="#050b16"
+            roughness={0.34}
+            metalness={0.94}
+            roughnessMap={roomTextures.panel}
+            bumpMap={roomTextures.panel}
+            bumpScale={0.03}
+            envMapIntensity={1.2}
+          />
+        </mesh>
+        <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 4.2, 0]}>
+          <planeGeometry args={[13, 20]} />
+          <meshStandardMaterial color="#020612" roughness={0.7} metalness={0.5} />
+        </mesh>
+        {[-6.4, 6.4].map((x, i) => (
+          <mesh
+            key={`deep-wall-${i}`}
+            position={[x, 2.1, 0]}
+            rotation={[0, i === 0 ? Math.PI / 2 : -Math.PI / 2, 0]}
+            receiveShadow
+          >
+            <planeGeometry args={[20, 5]} />
+            <meshStandardMaterial color="#030712" metalness={0.8} roughness={0.42} />
+          </mesh>
+        ))}
+        <mesh position={[0, 2.1, -9.6]}>
+          <planeGeometry args={[13, 5]} />
+          <meshStandardMaterial color="#030712" metalness={0.8} roughness={0.42} />
+        </mesh>
+        {[-1.5, 0, 1.5].map((x, i) => (
+          <mesh key={`deep-conduit-${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[x, 0.02, 0]}>
+            <planeGeometry args={[0.07, 18]} />
+            <meshStandardMaterial color="#0284c7" emissive="#00f0ff" emissiveIntensity={0.55} />
+          </mesh>
+        ))}
+        {[-4.6, 4.6].map((x, i) => (
+          <mesh key={`deep-strip-${i}`} position={[x, 3.4, 0]}>
+            <boxGeometry args={[0.06, 0.06, 18]} />
+            <meshBasicMaterial color="#00ffcc" toneMapped={false} />
+          </mesh>
+        ))}
+        {Array.from({ length: 8 }, (_, i) => {
+          const side = i % 2 === 0 ? -1 : 1;
+          const z = -8 + Math.floor(i / 2) * 4.6;
+          return (
+            <mesh key={`deep-rack-${i}`} position={[side * 4.9, 1.5, z]} castShadow receiveShadow>
+              <boxGeometry args={[1.6, 3.0, 3.2]} />
+              <meshStandardMaterial color="#080f1c" metalness={0.9} roughness={0.4} />
+            </mesh>
+          );
+        })}
+      </group>
+
       {/* Room Enclosing Boundaries */}
       <mesh position={[0, 2.1, -7]} receiveShadow>
         <planeGeometry args={[20, 5]} />
