@@ -629,7 +629,7 @@ function MainGameApp() {
     // A whole wave can reach the core in the same frame: without a short guard
     // that drained every heart instantly and felt unfair.
     const now = performance.now();
-    if (now - lastBreachAtRef.current < 850) return;
+    if (now - lastBreachAtRef.current < 1600) return;
     lastBreachAtRef.current = now;
 
     triggerHitStop(70);
@@ -861,7 +861,7 @@ function MainGameApp() {
               setAlarmActive(true);
               spatialAudio.startAlarmSiren();
 
-              const packetCount = difficulty === 'easy' ? 3 : difficulty === 'medium' ? 5 : 7;
+              const packetCount = difficulty === 'easy' ? 3 : difficulty === 'medium' ? 4 : 6;
               packetSwarmRef.current?.spawnPenaltyPackets(packetCount);
 
               // Clean up feedback after warp completes
