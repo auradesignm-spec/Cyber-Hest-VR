@@ -162,10 +162,10 @@ const buildStudioEnvironment = (): THREE.Scene => {
   // Cyan aisle bounce from both server rows
   addPanel(0x00f0ff, 1.5, [1.2, 4.0], [-5.9, 1.2, 0], [0, Math.PI / 2, 0]);
   addPanel(0x00f0ff, 1.5, [1.2, 4.0], [5.9, 1.2, 0], [0, -Math.PI / 2, 0]);
-  // Warm floor bounce
-  addPanel(0xffb066, 0.5, [8, 8], [0, -3.9, 0], [-Math.PI / 2, 0, 0]);
+  // Warm floor bounce (kept subtle so the palette stays cyan/black)
+  addPanel(0xffb066, 0.32, [8, 8], [0, -3.9, 0], [-Math.PI / 2, 0, 0]);
   // Red core glow at the far end of the room
-  addPanel(0xff3355, 1.8, [2.4, 1.2], [0, 1.2, -5.9], [0, 0, 0]);
+  addPanel(0xff3355, 0.85, [2.4, 1.2], [0, 1.2, -5.9], [0, 0, 0]);
 
   return envScene;
 };
@@ -696,8 +696,7 @@ export const ServerRoom: React.FC<ServerRoomProps> = ({ isEmergency = false, isF
       if (rightPointLightRef.current) {
         rightPointLightRef.current.intensity = THREE.MathUtils.damp(rightPointLightRef.current.intensity, 1.5, 8, delta);
       }
-      if (rearAlertLightRef.current) {
-        rearAlertLightRef.current.intensity = THREE.MathUtils.damp(rearAlertLightRef.current.intensity, 2.8, 8, delta);
+      if (rearAlertLightRef.current) {          rearAlertLightRef.current.intensity = THREE.MathUtils.damp(rearAlertLightRef.current.intensity, 1.1, 8, delta);
       }
     }
 
@@ -796,7 +795,7 @@ export const ServerRoom: React.FC<ServerRoomProps> = ({ isEmergency = false, isF
       <pointLight ref={centerPointLightRef} position={[0, 3.4, 0]} intensity={isEmergency ? 0.8 : 2.0} distance={12} color={isEmergency ? '#dc2626' : '#00f0ff'} />
       <pointLight ref={leftPointLightRef} position={[-3.0, 2.0, -1.5]} intensity={isEmergency ? 0.4 : 1.5} distance={7} color="#00ffcc" />
       <pointLight ref={rightPointLightRef} position={[3.0, 2.0, -1.5]} intensity={isEmergency ? 0.4 : 1.5} distance={7} color="#00ffcc" />
-      <pointLight ref={rearAlertLightRef} position={[0, 1.8, -4.8]} intensity={isEmergency ? 4.0 : 2.8} distance={10} color="#ef4444" />
+      <pointLight ref={rearAlertLightRef} position={[0, 1.8, -4.8]} intensity={isEmergency ? 4.0 : 1.1} distance={10} color="#ef4444" />
 
       {/* Rotating Red Emergency Ceiling Strobes with Fluctuating Power (Active on Health < 30% or Scenario 3 DDoS) */}
       {isEmergency && (

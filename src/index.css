@@ -1,10 +1,32 @@
 @import "tailwindcss";
 
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* The game viewport must never scroll or rubber-band: fixed root removes the
+   stray scrollbars that used to appear around the WebGL canvas. */
+#root {
+  position: fixed;
+  inset: 0;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   font-family: 'Cairo', system-ui, -apple-system, sans-serif;
   overflow: hidden;
   user-select: none;
   background-color: #020617;
+  touch-action: manipulation;
 }
 
 /* Focus-visible outline for keyboard & desktop accessibility */

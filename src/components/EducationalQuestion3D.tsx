@@ -8,6 +8,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Interactive } from '@react-three/xr';
 import { EducationalQuestion, Language, QuestionOption } from '../types/game';
+import { getAnswerLayout, useViewAspect } from '../game/viewfit';
 
 interface EducationalQuestion3DProps {
   question: EducationalQuestion;
@@ -260,18 +261,19 @@ const SolutionTargetCard: React.FC<{
   index: number;
   position: [number, number, number];
   rotY?: number;
+  scale?: number;
   isLocked: boolean;
   isCorrect: boolean | null;
   isArabic: boolean;
   onSelect: () => void;
-}> = ({ option, index, position, rotY = 0, isLocked, isCorrect, isArabic, onSelect }) => {
+}> = ({ option, index, position, rotY = 0, scale = 1, isLocked, isCorrect, isArabic, onSelect }) => {
   const cardRef = useRef<THREE.Group>(null);
   const badgeTexture = useOptionBadgeTexture(option, index, isLocked, isCorrect, isArabic);
 
   // Smooth hover scale: 1.05 when locked/hovered, 1.0 when idle
   useFrame((_, delta) => {
     if (cardRef.current) {
-      const targetScale = isLocked ? 1.05 : 1.0;
+      const targetScale = scale * (isLocked ? 1.05 : 1.0);
       cardRef.current.scale.x = THREE.MathUtils.damp(cardRef.current.scale.x, targetScale, 14, delta);
       cardRef.current.scale.y = THREE.MathUtils.damp(cardRef.current.scale.y, targetScale, 14, delta);
       cardRef.current.scale.z = THREE.MathUtils.damp(cardRef.current.scale.z, targetScale, 14, delta);
@@ -342,24 +344,22 @@ export const EducationalQuestion3D: React.FC<EducationalQuestion3DProps> = ({
   const isArabic = language === 'ar';
   const boardTexture = useQuestionBoardTexture(question, questionIndex, totalQuestions, isArabic);
 
-  // Solution badges sit on a 4m arc around the player and face inward, so the
-  // answers literally surround the player in VR instead of forming one flat wall.
-  const optionLayout = useMemo(() => {
-    const radius = 4.0;
-    const angles = question.options.length === 3 ? [-40, 0, 40] : [-55, -18, 18, 55];
-    return angles.slice(0, question.options.length).map((deg) => {
-      const rad = (deg * Math.PI) / 180;
-      return {
-        position: [Math.sin(rad) * radius, 1.25, -Math.cos(rad) * radius] as [number, number, number],
-        rotY: -rad,
-      };
-    });
-  }, [question.options.length]);
+  // Shared, aspect-aware arc layout: wide screens and VR wrap the choices around
+  // the player, narrow screens pull them into a tighter fan that still fits.
+  const viewAspect = useViewAspect();
+  const optionLayout = useMemo(
+    () => getAnswerLayout(question.options.length, viewAspect),
+    [question.options.length, viewAspect]
+  );
 
   return (
     <group name="EducationalQuestionRig">
       {/* 1. QUESTION BOARD LOWERED TO NATURAL CENTER FOV (Y: 2.8m, Z: -4.0m) */}
-      <group position={[0, 2.6, -4.15]} rotation={[-0.06, 0, 0]}>
+      <group
+        position={[0, viewAspect < 1.15 ? 2.3 : 2.6, viewAspect < 1.15 ? -4.4 : -4.15]}
+        rotation={[-0.06, 0, 0]}
+        scale={viewAspect < 1.15 ? 0.58 : 1}
+      >
         {/* Solid #000000 Backplate */}
         <mesh renderOrder={0}>
           <boxGeometry args={[4.8, 1.25, 0.1]} />
@@ -396,6 +396,7 @@ export const EducationalQuestion3D: React.FC<EducationalQuestion3DProps> = ({
               index={idx}
               position={layout.position}
               rotY={layout.rotY}
+              scale={layout.scale}
               isLocked={isLocked}
               isCorrect={isResult}
               isArabic={isArabic}

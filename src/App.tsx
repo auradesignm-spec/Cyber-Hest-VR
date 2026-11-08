@@ -31,6 +31,7 @@ import {
   shouldDropDataShard,
 } from './game/rules';
 import { CURRICULUM_QUESTIONS } from './game/curriculum';
+import { getAnswerLayout, useViewAspect } from './game/viewfit';
 import { spatialAudio } from './audio/SpatialAudio';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { ServerRoom } from './components/ServerRoom';
@@ -163,6 +164,9 @@ function SceneCamera({
 
 function MainGameApp() {
   const { language, setLanguage, isArabic, t } = useLanguage();
+
+  // Live aspect ratio drives the shared 3D answer-card arc (VR wide, portrait narrow)
+  const viewAspect = useViewAspect();
 
   // Query parameters for direct launch
   const queryParams = useMemo(() => new URLSearchParams(window.location.search), []);
@@ -553,22 +557,13 @@ function MainGameApp() {
 
     // Phase 1 (Decoding): The 3 horizontal Answer Badges at [-2.35, 1.0, -4.0], [0, 1.0, -4.0], [2.35, 1.0, -4.0]
     if (combatPhase === 'decoding' && !isCombatWarping) {
-      // Mirrors the arc layout in EducationalQuestion3D so aim assist and target
-      // cards stay perfectly aligned while the answers surround the player.
-      const arcRadius = 4.0;
-      const angles = currentQuestion.options.length === 3 ? [-40, 0, 40] : [-55, -18, 18, 55];
-      return currentQuestion.options.map((opt: QuestionOption, idx: number) => {
-        const rad = ((angles[idx] ?? 0) * Math.PI) / 180;
-        return {
-          id: opt.id,
-          position: [
-            Math.sin(rad) * arcRadius,
-            1.25,
-            -Math.cos(rad) * arcRadius,
-          ] as [number, number, number],
-          radius: 0.85,
-        };
-      });
+      // Shared arc layout with EducationalQuestion3D (aspect-aware) so aim assist,
+      // card placement and rotations always agree.
+      return getAnswerLayout(currentQuestion.options.length, viewAspect).map((layout, idx) => ({
+        id: currentQuestion.options[idx].id,
+        position: layout.position,
+        radius: 0.85,
+      }));
     }
 
     // Phase 2 (Defense): Targets include dynamic Power-Up Orbs
@@ -597,6 +592,7 @@ function MainGameApp() {
     isCombatWarping,
     powerUpOrbs,
     healthPickups,
+    viewAspect,
   ]);
 
   // Countdown Timer
