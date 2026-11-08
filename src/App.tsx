@@ -21,6 +21,7 @@ import {
   PowerUpOrb,
   PowerUpType,
   ActivePowerUp,
+  HealthPickup,
   QuestionOption,
 } from './types/game';
 import {
@@ -49,6 +50,8 @@ import { VictimServerNode3D } from './components/VictimServerNode3D';
 import { FloatingScorePopups } from './components/FloatingScorePopups';
 import { DataShards } from './components/DataShards';
 import { PowerUpOrbs } from './components/PowerUpOrbs';
+import { HealthPickups, MAX_HEALTH_PICKUPS } from './components/HealthPickups';
+import { StageResult3D } from './components/StageResult3D';
 import { SplashHero3D } from './components/SplashHero3D';
 import { ScenarioHub3D } from './components/ScenarioHub3D';
 import { DifficultyHub3D } from './components/DifficultyHub3D';
@@ -194,9 +197,12 @@ function MainGameApp() {
   const lastMenuActivationRef = useRef<{id: string; at: number} | null>(null);
   const gameStatusRef = useRef<GameStatus>(gameStatus);
   useEffect(() => { gameStatusRef.current = gameStatus }, [gameStatus]);
+  const heartsRef = useRef(hearts);
+  useEffect(() => { heartsRef.current = hearts }, [hearts]);
   const [scorePopups, setScorePopups] = useState<ScorePopup[]>([]);
   const [dataShards, setDataShards] = useState<DataShard[]>([]);
   const [powerUpOrbs, setPowerUpOrbs] = useState<PowerUpOrb[]>([]);
+  const [healthPickups, setHealthPickups] = useState<HealthPickup[]>([]);
   const [activePowerUp, setActivePowerUp] = useState<ActivePowerUp | null>(null);
   const [blasterMuzzles, setBlasterMuzzles] = useState<[number, number, number][]>([]);
   const [highScore, setHighScore] = useState<number>(() => {
@@ -423,9 +429,9 @@ function MainGameApp() {
 
   // Initial timer setup by difficulty
   const getInitialTimer = useCallback((diff: DifficultyLevel) => {
-    if (diff === 'easy') return 120;
-    if (diff === 'medium') return 90;
-    return 60;
+    if (diff === 'easy') return 150;
+    if (diff === 'medium') return 120;
+    return 95;
   }, []);
 
   // Start or Reset Scenario Game Loop
@@ -461,6 +467,7 @@ function MainGameApp() {
       setScorePopups([]);
       setDataShards([]);
       setPowerUpOrbs([]);
+      setHealthPickups([]);
       setActivePowerUp(null);
       missGraceRef.current = 0;
       pendingDecodeRef.current = false;
@@ -529,33 +536,68 @@ function MainGameApp() {
       return [];
     }
 
+    if (gameStatus === 'victory') {
+      return [
+        { id: 'btn-next-stage', position: [-1.15, 1.0, -3.15] as [number, number, number], radius: 0.8 },
+        { id: 'btn-main-menu', position: [1.15, 1.0, -3.15] as [number, number, number], radius: 0.8 },
+      ];
+    }
+    if (gameStatus === 'gameover') {
+      return [
+        { id: 'btn-retry', position: [-1.15, 1.0, -3.15] as [number, number, number], radius: 0.8 },
+        { id: 'btn-main-menu', position: [1.15, 1.0, -3.15] as [number, number, number], radius: 0.8 },
+      ];
+    }
+
     if (gameStatus !== 'playing') return [];
 
     // Phase 1 (Decoding): The 3 horizontal Answer Badges at [-2.35, 1.0, -4.0], [0, 1.0, -4.0], [2.35, 1.0, -4.0]
     if (combatPhase === 'decoding' && !isCombatWarping) {
-      const positions: [number, number, number][] = [
-        [-2.35, 1.0, -4.0],
-        [0.0, 1.0, -4.0],
-        [2.35, 1.0, -4.0],
-      ];
-      return currentQuestion.options.map((opt: QuestionOption, idx: number) => ({
-        id: opt.id,
-        position: positions[idx] || [0, 1.0, -4.0],
-        radius: 0.85,
-      }));
+      // Mirrors the arc layout in EducationalQuestion3D so aim assist and target
+      // cards stay perfectly aligned while the answers surround the player.
+      const arcRadius = 4.0;
+      const angles = currentQuestion.options.length === 3 ? [-40, 0, 40] : [-55, -18, 18, 55];
+      return currentQuestion.options.map((opt: QuestionOption, idx: number) => {
+        const rad = ((angles[idx] ?? 0) * Math.PI) / 180;
+        return {
+          id: opt.id,
+          position: [
+            Math.sin(rad) * arcRadius,
+            1.25,
+            -Math.cos(rad) * arcRadius,
+          ] as [number, number, number],
+          radius: 0.85,
+        };
+      });
     }
 
     // Phase 2 (Defense): Targets include dynamic Power-Up Orbs
     if (combatPhase === 'defense') {
-      return powerUpOrbs.map((orb) => ({
-        id: orb.id,
-        position: orb.position,
-        radius: 0.5,
-      }));
+      return [
+        ...powerUpOrbs.map((orb) => ({
+          id: orb.id,
+          position: orb.position,
+          radius: 0.5,
+        })),
+        ...healthPickups.map((pickup) => ({
+          id: pickup.id,
+          position: pickup.position,
+          radius: 0.55,
+        })),
+      ];
     }
 
     return [];
-  }, [gameStatus, cinematicStep, trainingState, combatPhase, currentQuestion, isCombatWarping, powerUpOrbs]);
+  }, [
+    gameStatus,
+    cinematicStep,
+    trainingState,
+    combatPhase,
+    currentQuestion,
+    isCombatWarping,
+    powerUpOrbs,
+    healthPickups,
+  ]);
 
   // Countdown Timer
   useEffect(() => {
@@ -726,7 +768,7 @@ function MainGameApp() {
                 setOverclockCombo(0);
                 setIsFeverMode(false);
                 spatialAudio.setFeverMode(false);
-                setTimeRemaining((prev) => Math.min(getInitialTimer(difficulty), prev + 25));
+                setTimeRemaining((prev) => Math.min(getInitialTimer(difficulty), prev + 35));
               }
             }
           };
@@ -804,7 +846,7 @@ function MainGameApp() {
               setAlarmActive(true);
               spatialAudio.startAlarmSiren();
 
-              const packetCount = difficulty === 'easy' ? 6 : difficulty === 'medium' ? 8 : 10;
+              const packetCount = difficulty === 'easy' ? 4 : difficulty === 'medium' ? 6 : 8;
               packetSwarmRef.current?.spawnPenaltyPackets(packetCount);
 
               // Clean up feedback after warp completes
@@ -814,7 +856,7 @@ function MainGameApp() {
           };
 
           requestAnimationFrame(animateForwardWarp);
-        }, 2000);
+        }, 1200);
 
         setLastQuestionResult(null);
       } else {
@@ -1045,9 +1087,102 @@ function MainGameApp() {
       } else if (idStr === 'btn-back-scenarios') {
         spatialAudio.playWhoosh();
         setCinematicStep('scenario_select');
+      } else if (idStr === 'btn-next-stage') {
+        spatialAudio.playWhoosh();
+        const order: ScenarioId[] = ['scenario-1', 'scenario-2', 'scenario-3'];
+        const nextScenario = order[(order.indexOf(scenarioId) + 1) % order.length];
+        initScenario(nextScenario, difficulty);
+      } else if (idStr === 'btn-retry') {
+        spatialAudio.playWhoosh();
+        initScenario(scenarioId, difficulty);
+      } else if (idStr === 'btn-main-menu') {
+        spatialAudio.playWhoosh();
+        setGameStatus('start');
+        setCinematicStep('splash');
+        setHearts(maxHearts);
+        setHealthPickups([]);
+        setPowerUpOrbs([]);
+        setAlarmActive(false);
+        spatialAudio.stopAlarmSiren();
       }
     },
-    [isArabic, setLanguage, handleStartTraining, selectedScenarioOption, difficulty, initScenario]
+    [
+      isArabic,
+      setLanguage,
+      handleStartTraining,
+      selectedScenarioOption,
+      difficulty,
+      initScenario,
+      scenarioId,
+      maxHearts,
+    ]
+  );
+
+  // ------------------------------------------------------------------
+  // Field repair kits: spawn while the core is damaged, restore one heart
+  // ------------------------------------------------------------------
+  const spawnHealthPickup = useCallback(() => {
+    setHealthPickups((prev) => {
+      if (prev.length >= MAX_HEALTH_PICKUPS) return prev;
+      const angle = (Math.random() - 0.5) * 1.4;
+      const radius = 4.5 + Math.random() * 2.5;
+      return [
+        ...prev,
+        {
+          id: `medkit-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          position: [
+            Math.sin(angle) * radius,
+            1.3 + Math.random() * 0.6,
+            -24 - Math.cos(angle) * radius,
+          ] as [number, number, number],
+          createdAt: Date.now(),
+        },
+      ];
+    });
+  }, []);
+
+  useEffect(() => {
+    if (gameStatus !== 'playing' || combatPhase !== 'defense') return;
+
+    const firstSpawn = setTimeout(spawnHealthPickup, 3000);
+    const spawnTimer = setInterval(() => {
+      setHealthPickups((prev) => prev.filter((pickup) => Date.now() - pickup.createdAt < 22000));
+      spawnHealthPickup();
+    }, 11000);
+
+    return () => {
+      clearTimeout(firstSpawn);
+      clearInterval(spawnTimer);
+    };
+  }, [gameStatus, combatPhase, spawnHealthPickup]);
+
+  const handleCollectHealthPickup = useCallback(
+    (pickupId: string, position: [number, number, number]) => {
+      setHealthPickups((prev) => prev.filter((pickup) => pickup.id !== pickupId));
+      particlesRef.current?.spawnSparks(position[0], position[1], position[2], '#f87171');
+      spatialAudio.playSuccessChime();
+
+      const canHeal = heartsRef.current < maxHearts;
+      if (canHeal) {
+        setHearts((prev) => Math.min(maxHearts, prev + 1));
+      } else {
+        setScore((prev) => prev + 250);
+      }
+
+      spawnScorePopup(
+        canHeal
+          ? isArabic
+            ? '+1 سلامة النواة'
+            : '+1 CORE INTEGRITY'
+          : isArabic
+          ? '+250 نقطة'
+          : '+250 PTS',
+        [position[0], position[1] + 0.45, position[2]],
+        '#f87171',
+        1.2
+      );
+    },
+    [isArabic, maxHearts, spawnScorePopup]
   );
 
   // Handle laser fire from VR controller or desktop mouse (Zero Allocations)
@@ -1104,6 +1239,32 @@ function MainGameApp() {
         return;
       }
 
+      // 3b. Stage result panels (victory / game over) are shoot-to-activate
+      if (gameStatus === 'victory' || gameStatus === 'gameover') {
+        for (let i = 0; i < activeTargets.length; i++) {
+          const target = activeTargets[i];
+          _menuSphere.center.set(target.position[0], target.position[1], target.position[2]);
+          _menuSphere.radius = target.radius || 0.8;
+
+          if (_menuRay.intersectsSphere(_menuSphere)) {
+            const hit = _menuRay.intersectSphere(_menuSphere, _hitPoint);
+            if (hit) {
+              _hitNormal.copy(hit).sub(_menuSphere.center).normalize();
+              particlesRef.current?.spawnLaserImpact(
+                hit.x, hit.y, hit.z,
+                _hitNormal.x, _hitNormal.y, _hitNormal.z,
+                '#00f0ff', 1.3
+              );
+              spatialAudio.playImpactZap(hit.x, hit.y, hit.z);
+              vrPlayerRef.current?.triggerImpactHaptic?.(side);
+            }
+            handleMenuTargetHit(target.id);
+            return;
+          }
+        }
+        return;
+      }
+
       // 4. Training Mode dispatch
       if (gameStatus === 'training') {
         for (let i = 0; i < activeTargets.length; i++) {
@@ -1130,6 +1291,28 @@ function MainGameApp() {
 
       // 5. Phase 2 (Defense): Check hit on power-up orbs & threat packets
       if (combatPhase === 'defense') {
+        // Field repair kits take priority: shooting one restores a heart
+        for (let h = 0; h < healthPickups.length; h++) {
+          const pickup = healthPickups[h];
+          _menuSphere.center.set(pickup.position[0], pickup.position[1], pickup.position[2]);
+          _menuSphere.radius = 0.55;
+          if (_menuRay.intersectsSphere(_menuSphere)) {
+            const hit = _menuRay.intersectSphere(_menuSphere, _hitPoint);
+            if (hit) {
+              _hitNormal.copy(hit).sub(_menuSphere.center).normalize();
+              particlesRef.current?.spawnLaserImpact(
+                hit.x, hit.y, hit.z,
+                _hitNormal.x, _hitNormal.y, _hitNormal.z,
+                '#f87171', 1.3
+              );
+              spatialAudio.playImpactZap(hit.x, hit.y, hit.z);
+              vrPlayerRef.current?.triggerImpactHaptic?.(side);
+            }
+            handleCollectHealthPickup(pickup.id, pickup.position);
+            return;
+          }
+        }
+
         // Check power-up orbs
         for (let o = 0; o < powerUpOrbs.length; o++) {
           const orb = powerUpOrbs[o];
@@ -1208,6 +1391,8 @@ function MainGameApp() {
       activePowerUp,
       overclockCombo,
       powerUpOrbs,
+      healthPickups,
+      handleCollectHealthPickup,
       handleOptionShot,
       handleCollectPowerUp,
       handleTrainingTargetHit,
@@ -1352,6 +1537,13 @@ function MainGameApp() {
               lockedTargetId={lockedTargetId}
             />
 
+            {/* Floating field repair kits (restore one heart when shot) */}
+            <HealthPickups
+              pickups={healthPickups}
+              language={language}
+              lockedTargetId={lockedTargetId}
+            />
+
             {/* Malicious Packet Swarm (Phase 2: Converges onto Core at [0, 1.5, -30]) */}
             <PacketSwarm
               ref={packetSwarmRef}
@@ -1471,6 +1663,21 @@ function MainGameApp() {
                 explanationFeedback={educationalFeedback}
               />
             </group>
+
+            {/* In-world stage result console: next incident / retry / main menu */}
+            {(gameStatus === 'victory' || gameStatus === 'gameover') && (
+              <StageResult3D
+                status={gameStatus}
+                language={language}
+                score={score}
+                highScore={highScore}
+                isNewRecord={isNewRecord}
+                lockedTargetId={lockedTargetId}
+                onNextStage={() => handleMenuTargetHit('btn-next-stage')}
+                onRetry={() => handleMenuTargetHit('btn-retry')}
+                onMainMenu={() => handleMenuTargetHit('btn-main-menu')}
+              />
+            )}
 
             {/* Post-Processing Bloom & Vignette */}
             <EffectComposer multisampling={0}>

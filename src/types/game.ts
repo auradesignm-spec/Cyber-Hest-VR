@@ -195,3 +195,9 @@ export interface ActivePowerUp {
   endTime: number;
 }
 
+export interface HealthPickup {
+  id: string;
+  position: [number, number, number];
+  createdAt: number;
+}
+

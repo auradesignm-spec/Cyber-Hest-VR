@@ -259,11 +259,12 @@ const SolutionTargetCard: React.FC<{
   option: QuestionOption;
   index: number;
   position: [number, number, number];
+  rotY?: number;
   isLocked: boolean;
   isCorrect: boolean | null;
   isArabic: boolean;
   onSelect: () => void;
-}> = ({ option, index, position, isLocked, isCorrect, isArabic, onSelect }) => {
+}> = ({ option, index, position, rotY = 0, isLocked, isCorrect, isArabic, onSelect }) => {
   const cardRef = useRef<THREE.Group>(null);
   const badgeTexture = useOptionBadgeTexture(option, index, isLocked, isCorrect, isArabic);
 
@@ -281,7 +282,7 @@ const SolutionTargetCard: React.FC<{
     <Interactive
       onSelect={onSelect}
     >
-      <group ref={cardRef} position={position}>
+      <group ref={cardRef} position={position} rotation={[0, rotY, 0]}>
         {/* Solid #000000 Opaque Backing Plate (renderOrder 0) */}
         <mesh renderOrder={0}>
           <boxGeometry args={[1.35, 0.72, 0.08]} />
@@ -341,28 +342,24 @@ export const EducationalQuestion3D: React.FC<EducationalQuestion3DProps> = ({
   const isArabic = language === 'ar';
   const boardTexture = useQuestionBoardTexture(question, questionIndex, totalQuestions, isArabic);
 
-  // Distribute 3 solution option cards along X: [-2.35, 0, 2.35] at Y: 1.0, Z: -4.0
-  const optionPositions: [number, number, number][] = useMemo(() => {
-    const count = question.options.length;
-    if (count === 3) {
-      return [
-        [-2.35, 1.0, -4.0],
-        [0.0, 1.0, -4.0],
-        [2.35, 1.0, -4.0],
-      ];
-    }
-    return [
-      [-2.7, 1.0, -4.0],
-      [-0.9, 1.0, -4.0],
-      [0.9, 1.0, -4.0],
-      [2.7, 1.0, -4.0],
-    ];
+  // Solution badges sit on a 4m arc around the player and face inward, so the
+  // answers literally surround the player in VR instead of forming one flat wall.
+  const optionLayout = useMemo(() => {
+    const radius = 4.0;
+    const angles = question.options.length === 3 ? [-40, 0, 40] : [-55, -18, 18, 55];
+    return angles.slice(0, question.options.length).map((deg) => {
+      const rad = (deg * Math.PI) / 180;
+      return {
+        position: [Math.sin(rad) * radius, 1.25, -Math.cos(rad) * radius] as [number, number, number],
+        rotY: -rad,
+      };
+    });
   }, [question.options.length]);
 
   return (
     <group name="EducationalQuestionRig">
       {/* 1. QUESTION BOARD LOWERED TO NATURAL CENTER FOV (Y: 2.8m, Z: -4.0m) */}
-      <group position={[0, 2.8, -4.0]}>
+      <group position={[0, 2.6, -4.15]} rotation={[-0.06, 0, 0]}>
         {/* Solid #000000 Backplate */}
         <mesh renderOrder={0}>
           <boxGeometry args={[4.8, 1.25, 0.1]} />
@@ -385,7 +382,10 @@ export const EducationalQuestion3D: React.FC<EducationalQuestion3DProps> = ({
       {/* 2. SOLUTION TARGET BADGES (Y: 1.0m, Z: -4.0m) */}
       <group name="SolutionOptionsRow">
         {question.options.map((opt, idx) => {
-          const pos = optionPositions[idx] || [0, 1.0, -4.0];
+          const layout = optionLayout[idx] || {
+            position: [0, 1.25, -4.0] as [number, number, number],
+            rotY: 0,
+          };
           const isLocked = lockedTargetId === opt.id;
           const isResult = lastFeedback?.optionId === opt.id ? lastFeedback.isCorrect : null;
 
@@ -394,7 +394,8 @@ export const EducationalQuestion3D: React.FC<EducationalQuestion3DProps> = ({
               key={opt.id}
               option={opt}
               index={idx}
-              position={pos}
+              position={layout.position}
+              rotY={layout.rotY}
               isLocked={isLocked}
               isCorrect={isResult}
               isArabic={isArabic}
