@@ -36,13 +36,18 @@ export const WeaponArmory3D: React.FC<WeaponArmory3DProps> = ({ language, onClos
     const endDrag = () => {
       dragRef.current.active = false;
     };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
     window.addEventListener('pointerup', endDrag);
     window.addEventListener('pointercancel', endDrag);
+    window.addEventListener('keydown', onKeyDown);
     return () => {
       window.removeEventListener('pointerup', endDrag);
       window.removeEventListener('pointercancel', endDrag);
+      window.removeEventListener('keydown', onKeyDown);
     };
-  }, []);
+  }, [onClose]);
 
   const headerTexture = useMemo(() => {
     const canvas = document.createElement('canvas');
@@ -224,7 +229,17 @@ export const WeaponArmory3D: React.FC<WeaponArmory3DProps> = ({ language, onClos
           position={[0, -0.68, 0.35]}
           scale={hovered === 'close' ? [1.06, 1.06, 1] : [1, 1, 1]}
         >
-          <mesh renderOrder={2}>
+          <mesh
+            renderOrder={2}
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
+          >
             <planeGeometry args={[0.62, 0.14]} />
             <meshBasicMaterial map={closeTexture} toneMapped={false} transparent depthWrite={false} />
           </mesh>
