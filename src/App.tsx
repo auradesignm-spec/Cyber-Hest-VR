@@ -55,6 +55,7 @@ import { HealthPickups, MAX_HEALTH_PICKUPS } from './components/HealthPickups';
 import { StageResult3D } from './components/StageResult3D';
 import { SplashHero3D } from './components/SplashHero3D';
 import { WeaponArmory3D } from './components/WeaponArmory3D';
+import { HeadsetLinkModal } from './components/HeadsetLinkModal';
 import { WEAPONS, WeaponId } from './game/weapons';
 import { ScenarioHub3D } from './components/ScenarioHub3D';
 import { DifficultyHub3D } from './components/DifficultyHub3D';
@@ -116,8 +117,10 @@ function SceneCamera({
     shake.amp = isScreenShake
       ? Math.min(0.03, shake.amp + delta * 0.5)
       : THREE.MathUtils.damp(shake.amp, 0, 10, delta);
-    camera.position.x = Math.sin(shake.phase) * shake.amp;
-    camera.position.y = 1.6 + Math.cos(shake.phase * 1.37) * shake.amp * 0.65;
+    // Horizontal-only recoil nudge. The old vertical oscillation read as the
+    // camera bobbing up and down after every stage; the eye line stays locked.
+    camera.position.x = Math.sin(shake.phase) * shake.amp * 0.35;
+    camera.position.y = 1.6;
 
     let targetZ = 0.4;
     let targetLookZ = -10.0;
@@ -286,6 +289,7 @@ function MainGameApp() {
   const particlesRef = useRef<ParticleSystemHandle>(null);
   const vrPlayerRef = useRef<VRPlayerHandle>(null);
   const [isArmoryOpen, setIsArmoryOpen] = useState(false);
+  const [isHeadsetLinkOpen, setIsHeadsetLinkOpen] = useState(false);
   const [weaponId, setWeaponId] = useState<WeaponId>(() => {
     try {
       const stored = localStorage.getItem('cyber_heist_weapon');
@@ -1715,7 +1719,7 @@ function MainGameApp() {
 
   return (
     <div
-      className={`relative w-screen h-screen bg-[#020611] overflow-hidden select-none font-sans ${
+      className={`relative w-screen h-[100dvh] bg-[#020611] overflow-hidden select-none font-sans ${
         screenShake ? 'animate-bounce' : ''
       }`}
     >
@@ -1988,12 +1992,27 @@ function MainGameApp() {
       {/* 
         NON-BLOCKING SPATIAL HUD OVERLAY ON START (Allows full 3D shooting interaction)
       */}
+      {isHeadsetLinkOpen && (
+        <HeadsetLinkModal
+          language={language}
+          onEnterVR={() => {
+            setIsHeadsetLinkOpen(false);
+            handleEnterVR();
+          }}
+          onClose={() => setIsHeadsetLinkOpen(false)}
+        />
+      )}
+
       {gameStatus === 'start' && !isArmoryOpen && (
         <StartScreen
           difficulty={difficulty}
           onOpenArmory={() => {
             spatialAudio.playWhoosh();
             setIsArmoryOpen(true);
+          }}
+          onOpenHeadsetLink={() => {
+            spatialAudio.playWhoosh();
+            setIsHeadsetLinkOpen(true);
           }}
           onSelectDifficulty={(d) => {
             setDifficulty(d);

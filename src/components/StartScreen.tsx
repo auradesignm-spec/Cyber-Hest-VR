@@ -40,6 +40,7 @@ interface StartScreenProps {
   onEnterVR: () => void;
   onPlayDesktop: () => void;
   onOpenArmory: () => void;
+  onOpenHeadsetLink: () => void;
   onStartTraining: () => void;
   onOpenManual: () => void;
   isMuted: boolean;
@@ -60,6 +61,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({
   onEnterVR,
   onPlayDesktop,
   onOpenArmory,
+  onOpenHeadsetLink,
   onStartTraining,
   onOpenManual,
   isMuted,
@@ -604,6 +606,15 @@ export const StartScreen: React.FC<StartScreenProps> = ({
         >
           <Sparkles className="w-4 h-4 text-cyan-400" />
           <span>{isArabic ? 'معرض الأسلحة (360°)' : 'WEAPON ARMORY (360°)'}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={onOpenHeadsetLink}
+          className="pointer-events-auto no-game-shoot px-5 py-2.5 rounded-xl bg-[#03091e]/90 border border-emerald-400/60 hover:border-emerald-300 text-emerald-300 hover:text-white font-black text-xs transition-all cursor-pointer flex items-center gap-2 shadow-sm"
+        >
+          <Glasses className="w-4 h-4 text-emerald-300" />
+          <span>{isArabic ? 'ربط النظارة' : 'LINK HEADSET'}</span>
         </button>
       </footer>
     </div>
