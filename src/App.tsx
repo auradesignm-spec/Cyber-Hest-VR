@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { createXRStore, XR } from '@react-three/xr';
-import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing';
+import { PostFX } from './components/PostFX';
 import * as THREE from 'three';
 import {
   ScenarioId,
@@ -54,6 +54,7 @@ import { PowerUpOrbs } from './components/PowerUpOrbs';
 import { HealthPickups, MAX_HEALTH_PICKUPS } from './components/HealthPickups';
 import { StageResult3D } from './components/StageResult3D';
 import { SplashHero3D } from './components/SplashHero3D';
+import { WeaponArmory3D } from './components/WeaponArmory3D';
 import { ScenarioHub3D } from './components/ScenarioHub3D';
 import { DifficultyHub3D } from './components/DifficultyHub3D';
 
@@ -278,6 +279,7 @@ function MainGameApp() {
   const lasersRef = useRef<LaserHandle>(null);
   const particlesRef = useRef<ParticleSystemHandle>(null);
   const vrPlayerRef = useRef<VRPlayerHandle>(null);
+  const [isArmoryOpen, setIsArmoryOpen] = useState(false);
 
   // WebXR Store
   const xrStore = useMemo(() => createXRStore(), []);
@@ -1704,9 +1706,13 @@ function MainGameApp() {
               SPATIAL 3D SHOOT-TO-INTERACT MENUS (WebXR & Desktop):
               Crystal-clear solid #020612 cards arranged in strict grid layout
             */}
-            {gameStatus === 'start' && cinematicStep === 'splash' && (
+            {gameStatus === 'start' && cinematicStep === 'splash' && !isArmoryOpen && (
               <SplashHero3D
                 language={language}
+                onOpenArmory={() => {
+                  spatialAudio.playWhoosh();
+                  setIsArmoryOpen(true);
+                }}
                 onToggleLanguage={() => setLanguage(isArabic ? 'en' : 'ar')}
                 onInitializeDefense={() => {
                   spatialAudio.playWhoosh();
@@ -1795,14 +1801,19 @@ function MainGameApp() {
               />
             )}
 
-            {/* Post-Processing Bloom & Vignette */}
-            <EffectComposer multisampling={0}>
-              <Bloom luminanceThreshold={0.9} mipmapBlur={false} intensity={0.12} />
-              <ChromaticAberration
-                offset={alarmActive ? new THREE.Vector2(0.0004, 0.0004) : new THREE.Vector2(0.0001, 0.0001)}
+            {/* Weapon armory: inspect the blasters from every side */}
+            {isArmoryOpen && (
+              <WeaponArmory3D
+                language={language}
+                onClose={() => {
+                  spatialAudio.playButtonBeep(660);
+                  setIsArmoryOpen(false);
+                }}
               />
-              <Vignette eskil={false} offset={0.15} darkness={0.45} />
-            </EffectComposer>
+            )}
+
+            {/* Screen-space post-processing (skipped inside XR sessions) */}
+            <PostFX alarmActive={alarmActive} />
           </XR>
         </Canvas>
       </div>
@@ -1810,9 +1821,13 @@ function MainGameApp() {
       {/* 
         NON-BLOCKING SPATIAL HUD OVERLAY ON START (Allows full 3D shooting interaction)
       */}
-      {gameStatus === 'start' && (
+      {gameStatus === 'start' && !isArmoryOpen && (
         <StartScreen
           difficulty={difficulty}
+          onOpenArmory={() => {
+            spatialAudio.playWhoosh();
+            setIsArmoryOpen(true);
+          }}
           onSelectDifficulty={(d) => {
             setDifficulty(d);
             spatialAudio.playButtonBeep(720);

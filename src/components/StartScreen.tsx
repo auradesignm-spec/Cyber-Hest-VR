@@ -39,6 +39,7 @@ interface StartScreenProps {
   onStartGame: () => void;
   onEnterVR: () => void;
   onPlayDesktop: () => void;
+  onOpenArmory: () => void;
   onStartTraining: () => void;
   onOpenManual: () => void;
   isMuted: boolean;
@@ -58,6 +59,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({
   onStartGame,
   onEnterVR,
   onPlayDesktop,
+  onOpenArmory,
   onStartTraining,
   onOpenManual,
   isMuted,
@@ -593,6 +595,15 @@ export const StartScreen: React.FC<StartScreenProps> = ({
         >
           <Monitor className="w-4 h-4 text-slate-400" />
           <span>{t('playDesktop')}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={onOpenArmory}
+          className="pointer-events-auto no-game-shoot px-5 py-2.5 rounded-xl bg-[#03091e]/90 border border-cyan-500/50 hover:border-cyan-400 text-cyan-300 hover:text-white font-black text-xs transition-all cursor-pointer flex items-center gap-2 shadow-sm"
+        >
+          <Sparkles className="w-4 h-4 text-cyan-400" />
+          <span>{isArabic ? 'معرض الأسلحة (360°)' : 'WEAPON ARMORY (360°)'}</span>
         </button>
       </footer>
     </div>

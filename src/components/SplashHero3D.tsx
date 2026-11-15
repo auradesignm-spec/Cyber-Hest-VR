@@ -15,6 +15,7 @@ interface SplashHero3DProps {
   onInitializeDefense: () => void;
   onOpenManual: () => void;
   onStartTraining?: () => void;
+  onOpenArmory?: () => void;
   lockedTargetId?: string | number | null;
 }
 
@@ -32,6 +33,7 @@ export const SplashHero3D: React.FC<SplashHero3DProps> = ({
   onInitializeDefense,
   onOpenManual,
   onStartTraining,
+  onOpenArmory,
   lockedTargetId,
 }) => {
   const isArabic = language === 'ar';
@@ -265,6 +267,37 @@ export const SplashHero3D: React.FC<SplashHero3DProps> = ({
     return texture;
   }, [isArabic]);
 
+  // 6. Weapon Armory Button Texture
+  const armoryTexture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 640;
+    canvas.height = 140;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, 640, 140);
+
+      ctx.strokeStyle = '#00f0ff';
+      ctx.lineWidth = 5;
+      ctx.strokeRect(6, 6, 628, 128);
+
+      const fontFamily = isArabic ? '"Cairo", sans-serif' : '"JetBrains Mono", monospace';
+      ctx.font = `900 ${isArabic ? '28px' : '24px'} ${fontFamily}`;
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      const label = isArabic ? '🔫 معرض الأسلحة (عرض 360°)' : '🔫 WEAPON ARMORY (360° VIEW)';
+      ctx.fillText(label, 320, 65);
+
+      ctx.font = `900 18px ${fontFamily}`;
+      ctx.fillStyle = '#ffffff';
+      const sub = isArabic ? 'افحص البنادق من كل الزوايا' : 'INSPECT THE BLASTERS FROM ALL SIDES';
+      ctx.fillText(sub, 320, 105);
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  }, [isArabic]);
+
   useFrame((state) => {
     const time = state.clock.getElapsedTime();
 
@@ -420,6 +453,40 @@ export const SplashHero3D: React.FC<SplashHero3DProps> = ({
           {(hoveredButton === 'training' || lockedTargetId === 'btn-training') && (
             <mesh position={[0, 0, 0.03]} renderOrder={2}>
               <planeGeometry args={[2.56, 0.58]} />
+              <meshBasicMaterial color="#00f0ff" wireframe toneMapped={false} depthWrite={false} />
+            </mesh>
+          )}
+        </group>
+      </Interactive>
+
+      {/* 6. Weapon Armory Button (Y: -0.35m, Z: -3.8m) */}
+      <Interactive
+        onSelect={() => onOpenArmory?.()}
+        onHover={() => setHoveredButton('armory')}
+        onBlur={() => setHoveredButton(null)}
+      >
+        <group
+          position={[0, -0.35, -3.8]}
+          scale={hoveredButton === 'armory' || lockedTargetId === 'btn-armory' ? [1.05, 1.05, 1] : [1, 1, 1]}
+        >
+          <mesh renderOrder={0}>
+            <boxGeometry args={[1.92, 0.4, 0.04]} />
+            <meshBasicMaterial color="#000000" />
+          </mesh>
+          <mesh
+            position={[0, 0, 0.025]}
+            renderOrder={1}
+            onClick={() => onOpenArmory?.()}
+            onPointerDown={() => onOpenArmory?.()}
+            onPointerEnter={() => setHoveredButton('armory')}
+            onPointerLeave={() => setHoveredButton(null)}
+          >
+            <planeGeometry args={[1.9, 0.39]} />
+            <meshBasicMaterial map={armoryTexture} toneMapped={false} depthWrite={false} />
+          </mesh>
+          {(hoveredButton === 'armory' || lockedTargetId === 'btn-armory') && (
+            <mesh position={[0, 0, 0.03]} renderOrder={2}>
+              <planeGeometry args={[1.96, 0.44]} />
               <meshBasicMaterial color="#00f0ff" wireframe toneMapped={false} depthWrite={false} />
             </mesh>
           )}

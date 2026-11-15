@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useRef, useEffect, useImperativeHandle, forwardRef, useMemo } from 'react';
+import React, { useRef, useEffect, useImperativeHandle, forwardRef, useMemo, useCallback } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { useXR, useXRInputSourceState } from '@react-three/xr';
+import { useXR, useXRInputSourceState, useXRControllerButtonEvent } from '@react-three/xr';
 import * as THREE from 'three';
 import { spatialAudio } from '../audio/SpatialAudio';
 import { HUD3D } from './HUD3D';
@@ -53,6 +53,8 @@ const _snappedDir = new THREE.Vector3();
 const _m1 = new THREE.Vector3();
 const _m2 = new THREE.Vector3();
 const _muzzleWorldPos = new THREE.Vector3();
+
+type XRControllerLike = Parameters<typeof useXRControllerButtonEvent>[0];
 
 export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
   (
@@ -267,56 +269,92 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
       }
     });
 
-    // VR Session Controller Listeners (Trigger Pull & Squeeze Grip)
-    useEffect(() => {
-      if (!session) return;
+    // One trigger path shared by the XR gamepad layout and the raw session
+    // events: whichever WebXR delivers first wins, so a pull never double-fires.
+    const fireCooldownRef = useRef({ left: 0, right: 0 });
 
-      const handleSelectStart = (event: XRInputSourceEvent) => {
-        const handedness = event.inputSource.handedness as 'left' | 'right' | 'none';
-        const side = handedness === 'left' ? 'left' : 'right';
+    const fireBlaster = useCallback(
+      (
+        side: 'left' | 'right',
+        origin: THREE.Vector3,
+        rawDirection: THREE.Vector3,
+        inputSource?: XRInputSource
+      ) => {
+        const now = performance.now();
+        if (now - fireCooldownRef.current[side] < 110) return;
+        fireCooldownRef.current[side] = now;
 
-        triggerHaptic(event.inputSource, 0.8, 50);
+        triggerHaptic(inputSource, 0.8, 50);
         spatialAudio.playLaserFire(side);
 
         chargeLevelRef.current = Math.max(0.65, chargeLevelRef.current - 0.2);
         if (side === 'right') rightRecoilRef.current = 0.08;
         else leftRecoilRef.current = 0.08;
 
-        _origin.set(0, 0, 0);
-        _rawDirection.set(0, 0, -1);
+        const { snappedDir } = computeMagneticAim(origin, rawDirection);
+        onFireLaser(origin, snappedDir, side, origin);
+      },
+      [onFireLaser, activeTargets]
+    );
 
-        if (handedness === 'right' && rightControllerState?.object) {
-          rightControllerState.object.getWorldPosition(_origin);
-          rightControllerState.object.getWorldDirection(_rawDirection);
+    // Aim down the barrel of a controller (their local -Z is the pointer axis)
+    const fireFromController = useCallback(
+      (controller: XRControllerLike, side: 'left' | 'right', inputSource?: XRInputSource) => {
+        if (controller?.object) {
+          controller.object.getWorldPosition(_origin);
+          controller.object.getWorldDirection(_rawDirection);
           _rawDirection.negate();
-        } else if (handedness === 'left' && leftControllerState?.object) {
-          leftControllerState.object.getWorldPosition(_origin);
-          leftControllerState.object.getWorldDirection(_rawDirection);
-          _rawDirection.negate();
+          // Spawn just past the muzzle so the bolt never clips the hand model
+          _origin.addScaledVector(_rawDirection, 0.14);
         } else {
           camera.getWorldPosition(_origin);
           camera.getWorldDirection(_rawDirection);
         }
+        fireBlaster(side, _origin, _rawDirection, inputSource);
+      },
+      [camera, fireBlaster]
+    );
 
-        const { snappedDir } = computeMagneticAim(_origin, _rawDirection);
-        onFireLaser(_origin, snappedDir, side, _origin);
-      };
-
-      const handleSqueezeStart = (event: XRInputSourceEvent) => {
-        const handedness = event.inputSource.handedness as 'left' | 'right' | 'none';
-        triggerHaptic(event.inputSource, 0.35, 40);
+    // Authoritative controller input from the XR controller layout
+    useXRControllerButtonEvent(rightControllerState, 'xr-standard-trigger', (state) => {
+      if (state === 'pressed') {
+        fireFromController(rightControllerState, 'right', rightControllerState?.inputSource);
+      }
+    });
+    useXRControllerButtonEvent(leftControllerState, 'xr-standard-trigger', (state) => {
+      if (state === 'pressed') {
+        fireFromController(leftControllerState, 'left', leftControllerState?.inputSource);
+      }
+    });
+    useXRControllerButtonEvent(rightControllerState, 'xr-standard-squeeze', (state) => {
+      if (state === 'pressed') {
         spatialAudio.playButtonBeep(520);
-        onGripAction(handedness === 'left' ? 'left' : 'right');
+        onGripAction('right');
+      }
+    });
+    useXRControllerButtonEvent(leftControllerState, 'xr-standard-squeeze', (state) => {
+      if (state === 'pressed') {
+        spatialAudio.playButtonBeep(520);
+        onGripAction('left');
+      }
+    });
+
+    // Hand-tracking / gaze fallback. Controllers are handled above, so this
+    // listener deliberately ignores them to avoid firing twice.
+    useEffect(() => {
+      if (!session) return;
+
+      const handleSelectStart = (event: XRInputSourceEvent) => {
+        if (!event.inputSource.hand) return;
+        const side = event.inputSource.handedness === 'left' ? 'left' : 'right';
+        camera.getWorldPosition(_origin);
+        camera.getWorldDirection(_rawDirection);
+        fireBlaster(side, _origin, _rawDirection, event.inputSource);
       };
 
       session.addEventListener('selectstart', handleSelectStart);
-      session.addEventListener('squeezestart', handleSqueezeStart);
-
-      return () => {
-        session.removeEventListener('selectstart', handleSelectStart);
-        session.removeEventListener('squeezestart', handleSqueezeStart);
-      };
-    }, [session, leftControllerState, rightControllerState, camera, onFireLaser, onGripAction, activeTargets]);
+      return () => session.removeEventListener('selectstart', handleSelectStart);
+    }, [session, camera, fireBlaster]);
 
     // Desktop Pointer Down Handlers
     useEffect(() => {
@@ -503,23 +541,104 @@ function useStaticBlasterTexture(color: string, isRight: boolean) {
 /**
  * AAA-Grade Procedural Cyber Blaster Model with Cheap Materials for 90 FPS
  */
-const CyberBlasterModel: React.FC<{
+export const CyberBlasterModel: React.FC<{
   color: string;
   isRight: boolean;
   isLocked?: boolean;
   combo?: number;
   multiplier?: number;
   isFeverMode?: boolean;
-}> = ({ color, isRight, isFeverMode = false }) => {
+}> = ({ color, isRight, isLocked = false, isFeverMode = false }) => {
   const blasterTexture = useStaticBlasterTexture(color, isRight);
   const activeColor = isFeverMode ? '#f59e0b' : color;
 
   return (
     <group scale={[0.85, 0.85, 0.85]}>
+      {/* 0. Full-coverage chassis: no angle reads as a flat slab */}
+      <mesh position={[0, 0, -0.09]}>
+        <boxGeometry args={[0.082, 0.112, 0.2]} />
+        <meshStandardMaterial color="#16233a" metalness={0.9} roughness={0.28} />
+      </mesh>
+      {[1, -1].map((s) => (
+        <mesh key={`shoulder-${s}`} position={[0.045 * s, 0.018, -0.07]} rotation={[0, 0, 0.16 * s]}>
+          <boxGeometry args={[0.016, 0.07, 0.17]} />
+          <meshStandardMaterial color="#0d1728" metalness={0.85} roughness={0.35} />
+        </mesh>
+      ))}
+
+      {/* Side vent slits — emissive, so both flanks read as machine, not box */}
+      {[1, -1].map((s) =>
+        [-0.03, -0.07, -0.11].map((z, i) => (
+          <mesh key={`vent-${s}-${i}`} position={[0.054 * s, -0.01, z]}>
+            <boxGeometry args={[0.006, 0.034, 0.014]} />
+            <meshBasicMaterial color={activeColor} toneMapped={false} />
+          </mesh>
+        ))
+      )}
+
+      {/* Rear heat exchanger + glowing exhaust (the view from behind) */}
+      <mesh position={[0, 0.004, 0.055]}>
+        <boxGeometry args={[0.07, 0.096, 0.03]} />
+        <meshStandardMaterial color="#1b2740" metalness={0.9} roughness={0.3} />
+      </mesh>
+      <mesh position={[0, 0.004, 0.072]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.022, 0.022, 0.008, 12]} />
+        <meshBasicMaterial color={activeColor} toneMapped={false} />
+      </mesh>
+
+      {/* Barrel energy coils */}
+      {[-0.19, -0.235, -0.28].map((z, i) => (
+        <mesh key={`coil-${i}`} position={[0, 0.02, z]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.026, 0.005, 8, 16]} />
+          <meshBasicMaterial color={activeColor} toneMapped={false} />
+        </mesh>
+      ))}
+
+      {/* Muzzle crown prongs */}
+      {[0, 1, 2, 3].map((i) => {
+        const a = (i * Math.PI) / 2;
+        return (
+          <mesh key={`prong-${i}`} position={[Math.cos(a) * 0.027, 0.02 + Math.sin(a) * 0.027, -0.335]}>
+            <boxGeometry args={[0.011, 0.011, 0.05]} />
+            <meshStandardMaterial color="#243b55" metalness={0.9} roughness={0.25} />
+          </mesh>
+        );
+      })}
+
+      {/* Under-barrel capacitor + clamps */}
+      <mesh position={[0, -0.05, -0.16]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.017, 0.017, 0.14, 10]} />
+        <meshBasicMaterial color={activeColor} toneMapped={false} />
+      </mesh>
+      {[-0.11, -0.21].map((z, i) => (
+        <mesh key={`clamp-${i}`} position={[0, -0.05, z]}>
+          <boxGeometry args={[0.044, 0.02, 0.012]} />
+          <meshStandardMaterial color="#0b1120" metalness={0.8} roughness={0.4} />
+        </mesh>
+      ))}
+
+      {/* Trigger guard + magazine */}
+      <mesh position={[0, -0.072, -0.05]} rotation={[0, 0, 0]}>
+        <torusGeometry args={[0.026, 0.006, 6, 14, Math.PI]} />
+        <meshStandardMaterial color="#0b1120" metalness={0.8} roughness={0.4} />
+      </mesh>
+      <mesh position={[0, -0.112, -0.08]}>
+        <boxGeometry args={[0.038, 0.07, 0.05]} />
+        <meshStandardMaterial color="#16233a" metalness={0.85} roughness={0.35} />
+      </mesh>
+
+      {/* Magnetic-lock halo at the muzzle */}
+      {isLocked && (
+        <mesh position={[0, 0.02, -0.36]}>
+          <ringGeometry args={[0.034, 0.044, 20]} />
+          <meshBasicMaterial color={activeColor} toneMapped={false} transparent opacity={0.9} />
+        </mesh>
+      )}
+
       {/* 1. Main Matte Carbon/Steel Receiver */}
       <mesh position={[0, 0, -0.08]}>
         <boxGeometry args={[0.065, 0.095, 0.24]} />
-        <meshBasicMaterial color="#0b1120" />
+        <meshStandardMaterial color="#0b1120" metalness={0.85} roughness={0.32} />
       </mesh>
 
       {/* 2. Top Superconducting Energy Rail */}
