@@ -27,6 +27,8 @@ export interface PacketSwarmHandle {
   spawnPenaltyPackets: (count?: number) => void;
   getActiveCount: () => number;
   hasPendingSpawns: () => boolean;
+  /** Deactivate every threat without scoring or triggering wave completion */
+  clearPackets: () => void;
 }
 
 const MAX_PACKETS = 60;
@@ -261,7 +263,8 @@ export const PacketSwarm = forwardRef<PacketSwarmHandle, PacketSwarmProps>(
           if (!p.active) continue;
 
           _sphere.center.set(p.x, p.y, p.z);
-          _sphere.radius = 0.32;
+          // A touch of forgiveness: threats move fast and read small on a headset
+          _sphere.radius = 0.38;
 
           if (_ray.intersectsSphere(_sphere)) {
             p.active = false;
@@ -323,6 +326,15 @@ export const PacketSwarm = forwardRef<PacketSwarmHandle, PacketSwarmProps>(
       },
 
       hasPendingSpawns: () => spawnedInWaveRef.current < waveTargetCountRef.current,
+
+      clearPackets: () => {
+        packetsRef.current.forEach((p) => {
+          p.active = false;
+          p.y = -20;
+        });
+        spawnedInWaveRef.current = 0;
+        waveTargetCountRef.current = 0;
+      },
     }));
 
     // Animation loop: update threat capsule, dual cores, and revolving energy rings

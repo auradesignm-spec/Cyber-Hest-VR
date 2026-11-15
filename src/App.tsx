@@ -55,11 +55,14 @@ import { HealthPickups, MAX_HEALTH_PICKUPS } from './components/HealthPickups';
 import { StageResult3D } from './components/StageResult3D';
 import { SplashHero3D } from './components/SplashHero3D';
 import { WeaponArmory3D } from './components/WeaponArmory3D';
+import { WEAPONS, WeaponId } from './game/weapons';
 import { ScenarioHub3D } from './components/ScenarioHub3D';
 import { DifficultyHub3D } from './components/DifficultyHub3D';
 
 // Module-level pre-allocated math objects (Zero allocations during gameplay)
 const _camDir = new THREE.Vector3();
+const _pelletDir = new THREE.Vector3();
+const _upAxis = new THREE.Vector3(0, 1, 0);
 const _menuRay = new THREE.Ray();
 const _menuSphere = new THREE.Sphere(new THREE.Vector3(), 0.85);
 const _normRayDir = new THREE.Vector3();
@@ -80,6 +83,7 @@ function SceneCamera({
   combatWarpDirection,
   cinematicStep,
   isScreenShake = false,
+  inRun = true,
 }: {
   combatPhase: CombatPhase;
   isCombatWarping: boolean;
@@ -87,6 +91,8 @@ function SceneCamera({
   combatWarpDirection: 'forward' | 'backward' | null;
   cinematicStep: CinematicStep;
   isScreenShake?: boolean;
+  /** False on menus/results: forces the camera home even if combat state is stale */
+  inRun?: boolean;
 }) {
   const { camera } = useThree();
   // Smooth, decaying shake envelope (random per-frame jitter read as vibration)
@@ -117,7 +123,7 @@ function SceneCamera({
     let targetLookZ = -10.0;
     let targetFov = 72;
 
-    if (isCombatWarping) {
+    if (isCombatWarping && inRun) {
       const p = Math.min(1.0, Math.max(0.0, combatWarpProgress));
       // Cubic easing for visceral dash impulse
       const eased = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
@@ -135,7 +141,7 @@ function SceneCamera({
         targetLookZ = -10.0;
         targetFov = 72 + velocityPeak * 20;
       }
-    } else if (combatPhase === 'defense') {
+    } else if (inRun && combatPhase === 'defense') {
       // Stationed right in front of Core at Z: -20 (Core at Z: -30)
       targetZ = -20.0;
       targetLookZ = -30.0;
@@ -148,7 +154,7 @@ function SceneCamera({
     }
 
     // Apply camera Z position
-    if (isCombatWarping) {
+    if (isCombatWarping && inRun) {
       camera.position.z = targetZ;
     } else {
       camera.position.z = THREE.MathUtils.damp(camera.position.z, targetZ, 8, delta);
@@ -280,6 +286,23 @@ function MainGameApp() {
   const particlesRef = useRef<ParticleSystemHandle>(null);
   const vrPlayerRef = useRef<VRPlayerHandle>(null);
   const [isArmoryOpen, setIsArmoryOpen] = useState(false);
+  const [weaponId, setWeaponId] = useState<WeaponId>(() => {
+    try {
+      const stored = localStorage.getItem('cyber_heist_weapon');
+      return stored === 'scatter' || stored === 'lance' ? stored : 'pulse';
+    } catch {
+      return 'pulse';
+    }
+  });
+  const weaponSpecRef = useRef(WEAPONS[weaponId]);
+  weaponSpecRef.current = WEAPONS[weaponId];
+  useEffect(() => {
+    try {
+      localStorage.setItem('cyber_heist_weapon', weaponId);
+    } catch {
+      // storage can be blocked; the loadout simply won't persist
+    }
+  }, [weaponId]);
 
   // WebXR Store
   const xrStore = useMemo(() => createXRStore(), []);
@@ -669,6 +692,19 @@ function MainGameApp() {
       return next;
     });
   }, [gameStatus, triggerHitStop]);
+
+  // Streak callouts so the combo ladder stays legible and loud
+  const lastStreakRef = useRef(0);
+  useEffect(() => {
+    if (overclockCombo < 5) {
+      lastStreakRef.current = 0;
+      return;
+    }
+    if (overclockCombo % 5 !== 0 || overclockCombo === lastStreakRef.current) return;
+    lastStreakRef.current = overclockCombo;
+    spawnScorePopup(`×${overclockCombo} STREAK`, [0, 2.4, -24], '#f59e0b', 1.4);
+    spatialAudio.playTargetLock();
+  }, [overclockCombo, spawnScorePopup]);
 
   // Wave-clear transition. Called by the kill handler and by the defence watchdog:
   // a cleared wave used to leave the player sitting in an empty room.
@@ -1158,6 +1194,47 @@ function MainGameApp() {
     }
   }, [isArabic, trainingState.step]);
 
+  // Full world reset when leaving a run. Without this the camera stays parked
+  // in the defence bay with a dead swarm, so the menu appears against a dark
+  // empty corridor and the game looks frozen.
+  const returnToMenu = useCallback(() => {
+    spatialAudio.stopAlarmSiren();
+    spatialAudio.setFeverMode(false);
+
+    packetSwarmRef.current?.clearPackets();
+
+    setGameStatus('start');
+    setCinematicStep('splash');
+    setCombatPhase('decoding');
+    setIsCombatWarping(false);
+    setCombatWarpDirection(null);
+    setCombatWarpProgress(0);
+    setHearts(maxHearts);
+    setScore(0);
+    setOverclockCombo(0);
+    setIsFeverMode(false);
+    setAlarmActive(false);
+    setPhaseBanner(null);
+    setEducationalFeedback(null);
+    setHealthPickups([]);
+    setPowerUpOrbs([]);
+    setDataShards([]);
+    setScorePopups([]);
+    setActivePowerUp(null);
+    setThreatsRemaining(0);
+    setLockedTargetId(null);
+    setTimeRemaining(getInitialTimer(difficulty));
+    setQuestionIndex(0);
+    setIsArmoryOpen(false);
+
+    waveClearGuardRef.current = false;
+    emptySinceRef.current = 0;
+    missGraceRef.current = 0;
+    lastBreachAtRef.current = 0;
+    pendingDecodeRef.current = false;
+    lastMenuActivationRef.current = null;
+  }, [difficulty, getInitialTimer, maxHearts]);
+
   // Shoot-to-Interact 3D Menu Selection Handler
   const handleMenuTargetHit = useCallback(
     (targetId: string | number) => {
@@ -1215,13 +1292,7 @@ function MainGameApp() {
         initScenario(scenarioId, difficulty);
       } else if (idStr === 'btn-main-menu') {
         spatialAudio.playWhoosh();
-        setGameStatus('start');
-        setCinematicStep('splash');
-        setHearts(maxHearts);
-        setHealthPickups([]);
-        setPowerUpOrbs([]);
-        setAlarmActive(false);
-        spatialAudio.stopAlarmSiren();
+        returnToMenu();
       }
     },
     [
@@ -1232,7 +1303,7 @@ function MainGameApp() {
       difficulty,
       initScenario,
       scenarioId,
-      maxHearts,
+      returnToMenu,
     ]
   );
 
@@ -1306,6 +1377,7 @@ function MainGameApp() {
   // Handle laser fire from VR controller or desktop mouse (Zero Allocations)
   const handleFireLaser = useCallback(
     (origin: THREE.Vector3, direction: THREE.Vector3, side: 'left' | 'right' | 'desktop', aimOrigin?: THREE.Vector3) => {
+      const weapon = weaponSpecRef.current;
       const boltColor = isFeverMode
         ? '#f59e0b'
         : activePowerUp?.type === 'rapid_fire'
@@ -1314,9 +1386,7 @@ function MainGameApp() {
         ? '#00f0ff'
         : overclockCombo >= 3
         ? '#FFC700'
-        : side === 'left'
-        ? '#ec4899'
-        : '#00f0ff';
+        : weapon.color;
 
       // 1. Spawn traveling 3D volumetric energy bolt
       lasersRef.current?.fireBolt(origin, direction, boltColor, side, isFeverMode);
@@ -1453,25 +1523,38 @@ function MainGameApp() {
           }
         }
 
-        // Check threat packets
-        const hitResult = packetSwarmRef.current?.checkRayHit(hitOrigin, direction);
-        if (hitResult?.hit && hitResult.position) {
+        // Check threat packets — multi-pellet weapons sweep a fan of rays so a
+        // single pull can clear a cluster, while the lance locks the hardest.
+        let anyHit = false;
+        for (let pellet = 0; pellet < weapon.shots; pellet++) {
+          if (pellet === 0) {
+            _pelletDir.copy(direction);
+          } else {
+            const offset = (pellet - (weapon.shots - 1) / 2) * weapon.spread;
+            _pelletDir.copy(direction).applyAxisAngle(_upAxis, offset).normalize();
+            lasersRef.current?.fireBolt(origin, _pelletDir, boltColor, side, isFeverMode);
+          }
+
+          const hitResult = packetSwarmRef.current?.checkRayHit(hitOrigin, _pelletDir);
+          if (!hitResult?.hit || !hitResult.position) continue;
+
+          anyHit = true;
           // Defense packets already return the exact colliding point; approximate
           // the impact normal as opposing the incoming bolt ray direction.
-          _hitNormal.copy(_normRayDir).multiplyScalar(-1);
+          _hitNormal.copy(_pelletDir).multiplyScalar(-1);
           particlesRef.current?.spawnLaserImpact(
             hitResult.position.x, hitResult.position.y, hitResult.position.z,
             _hitNormal.x, _hitNormal.y, _hitNormal.z,
-            boltColor, 1.0
+            boltColor, weapon.boltScale
           );
           spatialAudio.playImpactZap(hitResult.position.x, hitResult.position.y, hitResult.position.z);
           vrPlayerRef.current?.triggerImpactHaptic?.(side);
           missGraceRef.current = 0;
-        } else {
-          // Missed shot! Start 1.5-second miss grace window before combo resets
-          if (overclockCombo > 0 && missGraceRef.current <= 0) {
-            missGraceRef.current = 1.5;
-          }
+        }
+
+        // Missed shot! Start 1.5-second miss grace window before combo resets
+        if (!anyHit && overclockCombo > 0 && missGraceRef.current <= 0) {
+          missGraceRef.current = 1.5;
         }
       }
 
@@ -1587,6 +1670,7 @@ function MainGameApp() {
               combatWarpDirection={combatWarpDirection}
               cinematicStep={cinematicStep}
               isScreenShake={screenShake}
+              inRun={gameStatus === 'playing'}
             />
 
             {/* AAA Server Room 3D Environment with Fever Mode Rhythmic Surge */}
@@ -1678,6 +1762,7 @@ function MainGameApp() {
               onFireLaser={handleFireLaser}
               onGripAction={() => spatialAudio.playButtonBeep(640)}
               fireDisabled={isArmoryOpen}
+              aimAssist={weaponSpecRef.current.aimAssist}
               health={(hearts / maxHearts) * 100}
               timeRemaining={timeRemaining}
               score={score}
@@ -1806,6 +1891,11 @@ function MainGameApp() {
             {isArmoryOpen && (
               <WeaponArmory3D
                 language={language}
+                weaponId={weaponId}
+                onSelectWeapon={(id) => {
+                  spatialAudio.playButtonBeep(760);
+                  setWeaponId(id);
+                }}
                 onClose={() => {
                   spatialAudio.playButtonBeep(660);
                   setIsArmoryOpen(false);
@@ -1894,8 +1984,8 @@ function MainGameApp() {
           onToggleMute={handleToggleMute}
           onOpenManual={() => setIsManualOpen(true)}
           onRestartScenario={() => initScenario(scenarioId, difficulty)}
-          onNextScenarioHub={() => setGameStatus('start')}
-          onReturnToMenu={() => setGameStatus('start')}
+          onNextScenarioHub={returnToMenu}
+          onReturnToMenu={returnToMenu}
           onOpenTraining={handleStartTraining}
           onTriggerTeamShout={handleTriggerTeamShout}
           lastTeamShout={lastTeamShout}

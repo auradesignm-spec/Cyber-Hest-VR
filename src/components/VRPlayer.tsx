@@ -42,6 +42,8 @@ interface VRPlayerProps {
   multiplier?: number;
   isFeverMode?: boolean;
   fireDisabled?: boolean;
+  /** Magnetic lock strength, driven by the equipped weapon (0..1) */
+  aimAssist?: number;
 }
 
 // Module-level pre-allocated math objects (Zero allocations during gameplay)
@@ -73,6 +75,7 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
       multiplier = 1,
       isFeverMode = false,
       fireDisabled = false,
+      aimAssist = 0.65,
     },
     ref
   ) => {
@@ -164,7 +167,8 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
     // Zero-allocation Magnetic Aim Assist Computation
     const computeMagneticAim = (originVec: THREE.Vector3, rawDir: THREE.Vector3): { snappedDir: THREE.Vector3; targetId: string | number | null } => {
       let bestTarget: TargetNodeInfo | null = null;
-      let closestAngle = 0.32; // ~18 degrees max threshold
+      const assist = Math.min(1, Math.max(0.3, aimAssist));
+      let closestAngle = 0.26 + assist * 0.14; // wider cone for high-lock weapons
 
       for (let i = 0; i < activeTargets.length; i++) {
         const target = activeTargets[i];
@@ -184,7 +188,7 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
 
       if (bestTarget) {
         _targetVec.set(bestTarget.position[0], bestTarget.position[1], bestTarget.position[2]).sub(originVec).normalize();
-        _snappedDir.copy(rawDir).lerp(_targetVec, 0.65).normalize();
+        _snappedDir.copy(rawDir).lerp(_targetVec, assist).normalize();
         return { snappedDir: _snappedDir, targetId: bestTarget.id };
       }
 
@@ -297,7 +301,7 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
         const { snappedDir } = computeMagneticAim(origin, rawDirection);
         onFireLaser(origin, snappedDir, side, origin);
       },
-      [onFireLaser, activeTargets, fireDisabled]
+      [onFireLaser, activeTargets, fireDisabled, aimAssist]
     );
 
     // Aim down the barrel of a controller (their local -Z is the pointer axis)
