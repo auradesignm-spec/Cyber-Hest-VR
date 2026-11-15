@@ -57,7 +57,7 @@ import { SplashHero3D } from './components/SplashHero3D';
 import { WeaponArmory3D } from './components/WeaponArmory3D';
 import { HeadsetLinkModal } from './components/HeadsetLinkModal';
 import { GameErrorBoundary } from './components/GameErrorBoundary';
-import { WEAPONS, WeaponId } from './game/weapons';
+import { WEAPONS, WEAPON_ORDER, WeaponId } from './game/weapons';
 import { ScenarioHub3D } from './components/ScenarioHub3D';
 import { DifficultyHub3D } from './components/DifficultyHub3D';
 
@@ -84,7 +84,6 @@ function SceneCamera({
   combatWarpProgress,
   combatWarpDirection,
   cinematicStep,
-  isScreenShake = false,
   inRun = true,
 }: {
   combatPhase: CombatPhase;
@@ -92,13 +91,10 @@ function SceneCamera({
   combatWarpProgress: number;
   combatWarpDirection: 'forward' | 'backward' | null;
   cinematicStep: CinematicStep;
-  isScreenShake?: boolean;
   /** False on menus/results: forces the camera home even if combat state is stale */
   inRun?: boolean;
 }) {
   const { camera } = useThree();
-  // Smooth, decaying shake envelope (random per-frame jitter read as vibration)
-  const shakeRef = useRef({ phase: 0, amp: 0 });
 
   useFrame((_, delta) => {
     camera.getWorldDirection(_camDir);
@@ -111,16 +107,10 @@ function SceneCamera({
       _camDir.z
     );
 
-    // Screen shake on impact: a damped oscillation instead of frame randomness,
-    // so repeated hits read as one impact impulse rather than constant jitter.
-    const shake = shakeRef.current;
-    shake.phase += delta * 38;
-    shake.amp = isScreenShake
-      ? Math.min(0.03, shake.amp + delta * 0.5)
-      : THREE.MathUtils.damp(shake.amp, 0, 10, delta);
-    // Horizontal-only recoil nudge. The old vertical oscillation read as the
-    // camera bobbing up and down after every stage; the eye line stays locked.
-    camera.position.x = Math.sin(shake.phase) * shake.amp * 0.35;
+    // No camera shake at all: every impact used to nudge the rig and the eye line
+    // drifted after each stage. Feedback now comes from the flash, the sound and
+    // the rumble only, so the horizon is rock steady.
+    camera.position.x = 0;
     camera.position.y = 1.6;
 
     let targetZ = 0.4;
@@ -249,7 +239,6 @@ function MainGameApp() {
   const [isMuted, setIsMuted] = useState(false);
   const [lastTeamShout, setLastTeamShout] = useState<string | null>(null);
   const [alarmActive, setAlarmActive] = useState(false);
-  const [screenShake, setScreenShake] = useState(false);
   const [redVignetteFlash, setRedVignetteFlash] = useState(false);
   const [educationalFeedback, setEducationalFeedback] = useState<{
     messageEn: string;
@@ -309,6 +298,16 @@ function MainGameApp() {
   const weaponSpecRef = useRef(WEAPONS[weaponId]);
   weaponSpecRef.current = WEAPONS[weaponId];
   const lastEquipAtRef = useRef(0);
+
+  // Single equip path for the 3D plates and the fallback row below them, so one
+  // click equips (and beeps) exactly once even when both surfaces fire.
+  const equipWeapon = useCallback((id: WeaponId) => {
+    const now = performance.now();
+    if (now - lastEquipAtRef.current < 260) return;
+    lastEquipAtRef.current = now;
+    spatialAudio.playButtonBeep(760);
+    setWeaponId(id);
+  }, []);
   useEffect(() => {
     try {
       localStorage.setItem('cyber_heist_weapon', weaponId);
@@ -319,14 +318,6 @@ function MainGameApp() {
 
   // WebXR Store
   const xrStore = useMemo(() => createXRStore(), []);
-
-  // Hit-Stop time dilation trigger (50ms micro-pause)
-  const triggerHitStop = useCallback((durationMs = 50) => {
-    setScreenShake(true);
-    setTimeout(() => {
-      setScreenShake(false);
-    }, durationMs + 100);
-  }, []);
 
   // Spawn dynamic 3D floating score billboard
   const spawnScorePopup = useCallback(
@@ -388,7 +379,6 @@ function MainGameApp() {
   const handleCollectPowerUp = useCallback(
     (orbId: string, type: PowerUpType, pos: [number, number, number]) => {
       setPowerUpOrbs((prev) => prev.filter((o) => o.id !== orbId));
-      triggerHitStop(50);
       spatialAudio.playPowerupChime();
       particlesRef.current?.spawnSparks(
         pos[0],
@@ -414,7 +404,7 @@ function MainGameApp() {
         setScore((s) => s + 300);
       }
     },
-    [triggerHitStop, spawnScorePopup]
+    [spawnScorePopup]
   );
 
   // Periodic spawn of Power-Up Orbs in Phase 2
@@ -700,16 +690,13 @@ function MainGameApp() {
     if (now - lastBreachAtRef.current < 1600) return;
     lastBreachAtRef.current = now;
 
-    triggerHitStop(70);
     setOverclockCombo(0);
     setIsFeverMode(false);
     spatialAudio.setFeverMode(false);
     missGraceRef.current = 0;
 
-    setScreenShake(true);
     setRedVignetteFlash(true);
     setTimeout(() => {
-      setScreenShake(false);
       setRedVignetteFlash(false);
     }, 400);
 
@@ -730,7 +717,7 @@ function MainGameApp() {
       }
       return next;
     });
-  }, [gameStatus, triggerHitStop]);
+  }, [gameStatus]);
 
   // Streak callouts so the combo ladder stays legible and loud
   const lastStreakRef = useRef(0);
@@ -835,7 +822,6 @@ function MainGameApp() {
   const handlePacketDestroyed = useCallback(
     (packetId: number, x: number, y: number, z: number) => {
       particlesRef.current?.spawnVoxelShatter(x, y, z, '#ef4444');
-      triggerHitStop(40);
       missGraceRef.current = 0;
       setThreatsRemaining((prev) => Math.max(0, prev - 1));
 
@@ -905,7 +891,6 @@ function MainGameApp() {
       currentQuestions.length,
       difficulty,
       getInitialTimer,
-      triggerHitStop,
       spawnScorePopup,
       spawnDataShard,
       highScore,
@@ -962,7 +947,6 @@ function MainGameApp() {
               setCombatPhase('defense');
               waveClearGuardRef.current = false;
               spatialAudio.playWarpDecelerate();
-              triggerHitStop(50);
 
               // Red emergency lights trigger, and malware swarm spawns around this new deep-Z area
               setAlarmActive(true);
@@ -993,10 +977,8 @@ function MainGameApp() {
         particlesRef.current?.spawnSparks(position[0], position[1], position[2], '#FF0055');
         particlesRef.current?.spawnVoxelShatter(position[0], position[1], position[2], '#FF0055');
 
-        setScreenShake(true);
         setRedVignetteFlash(true);
         setTimeout(() => {
-          setScreenShake(false);
           setRedVignetteFlash(false);
         }, 350);
 
@@ -1021,7 +1003,7 @@ function MainGameApp() {
         }, 4800);
       }
     },
-    [gameStatus, combatPhase, currentQuestion, difficulty, isCombatWarping, triggerHitStop]
+    [gameStatus, combatPhase, currentQuestion, difficulty, isCombatWarping]
   );
 
   // Guided Training Hit Handler
@@ -1669,9 +1651,7 @@ function MainGameApp() {
 
   return (
     <div
-      className={`relative w-screen h-[100dvh] bg-[#020611] overflow-hidden select-none font-sans ${
-        screenShake ? 'animate-bounce' : ''
-      }`}
+      className="relative w-screen h-[100dvh] bg-[#020611] overflow-hidden select-none font-sans"
     >
       {/* Red Vignette Flash on Core damage or penalty */}
       {redVignetteFlash && (
@@ -1700,7 +1680,6 @@ function MainGameApp() {
               combatWarpProgress={combatWarpProgress}
               combatWarpDirection={combatWarpDirection}
               cinematicStep={cinematicStep}
-              isScreenShake={screenShake}
               inRun={gameStatus === 'playing'}
             />
 
@@ -1923,15 +1902,7 @@ function MainGameApp() {
               <WeaponArmory3D
                 language={language}
                 weaponId={weaponId}
-                onSelectWeapon={(id) => {
-                  // The plate answers both the XR select and the pointer handler;
-                  // debounce so one click equips and beeps once.
-                  const now = performance.now();
-                  if (now - lastEquipAtRef.current < 260) return;
-                  lastEquipAtRef.current = now;
-                  spatialAudio.playButtonBeep(760);
-                  setWeaponId(id);
-                }}
+                onSelectWeapon={equipWeapon}
                 onClose={() => {
                   spatialAudio.playButtonBeep(660);
                   setIsArmoryOpen(false);
@@ -1945,6 +1916,44 @@ function MainGameApp() {
         </Canvas>
         </GameErrorBoundary>
       </div>
+
+      {/* Mouse fallback for the loadout. The 3D plates stay the primary UI, but a
+          thin HTML row below them means a desktop player can always equip and
+          leave even if a ray happens to miss a plate. */}
+      {isArmoryOpen && (
+        <div className="absolute inset-x-0 bottom-4 z-50 flex flex-wrap items-center justify-center gap-2 px-3">
+          {WEAPON_ORDER.map((id) => {
+            const weapon = WEAPONS[id];
+            const active = id === weaponId;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => equipWeapon(id)}
+                className={`px-3 py-2 rounded-lg border-2 font-black text-[10px] tracking-widest transition-colors cursor-pointer ${
+                  active
+                    ? 'bg-white text-black border-white'
+                    : 'bg-black/80 text-white/80 border-white/30 hover:border-white/70'
+                }`}
+                style={{ boxShadow: active ? `0 0 16px ${weapon.color}` : undefined }}
+              >
+                {language === 'ar' ? weapon.nameAr : weapon.nameEn}
+                {active ? ' ✓' : ''}
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => {
+              spatialAudio.playButtonBeep(660);
+              setIsArmoryOpen(false);
+            }}
+            className="px-3 py-2 rounded-lg border-2 border-red-500/70 bg-black/80 text-red-300 font-black text-[10px] tracking-widest cursor-pointer hover:bg-red-500/20"
+          >
+            ✕ CLOSE
+          </button>
+        </div>
+      )}
 
       {/* 
         NON-BLOCKING SPATIAL HUD OVERLAY ON START (Allows full 3D shooting interaction)
