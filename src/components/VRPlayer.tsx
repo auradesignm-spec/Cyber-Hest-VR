@@ -41,6 +41,7 @@ interface VRPlayerProps {
   combo?: number;
   multiplier?: number;
   isFeverMode?: boolean;
+  fireDisabled?: boolean;
 }
 
 // Module-level pre-allocated math objects (Zero allocations during gameplay)
@@ -71,6 +72,7 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
       combo = 0,
       multiplier = 1,
       isFeverMode = false,
+      fireDisabled = false,
     },
     ref
   ) => {
@@ -280,6 +282,7 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
         rawDirection: THREE.Vector3,
         inputSource?: XRInputSource
       ) => {
+        if (fireDisabled) return;
         const now = performance.now();
         if (now - fireCooldownRef.current[side] < 110) return;
         fireCooldownRef.current[side] = now;
@@ -294,7 +297,7 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
         const { snappedDir } = computeMagneticAim(origin, rawDirection);
         onFireLaser(origin, snappedDir, side, origin);
       },
-      [onFireLaser, activeTargets]
+      [onFireLaser, activeTargets, fireDisabled]
     );
 
     // Aim down the barrel of a controller (their local -Z is the pointer axis)
@@ -361,6 +364,7 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
       if (isInVR) return;
 
       const handlePointerDown = (e: MouseEvent) => {
+        if (fireDisabled) return;
         if ((e.target as HTMLElement)?.closest('.no-game-shoot')) return;
 
         const isRightClick = e.button === 2;
@@ -389,7 +393,7 @@ export const VRPlayer = forwardRef<VRPlayerHandle, VRPlayerProps>(
 
       window.addEventListener('pointerdown', handlePointerDown);
       return () => window.removeEventListener('pointerdown', handlePointerDown);
-    }, [isInVR, camera, pointer, raycaster, onFireLaser, activeTargets]);
+    }, [isInVR, camera, pointer, raycaster, onFireLaser, activeTargets, fireDisabled]);
 
     return (
       <group name="VRPlayerRig">

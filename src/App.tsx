@@ -1677,6 +1677,7 @@ function MainGameApp() {
               ref={vrPlayerRef}
               onFireLaser={handleFireLaser}
               onGripAction={() => spatialAudio.playButtonBeep(640)}
+              fireDisabled={isArmoryOpen}
               health={(hearts / maxHearts) * 100}
               timeRemaining={timeRemaining}
               score={score}

@@ -5,7 +5,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Interactive } from '@react-three/xr';
+import { Interactive, useXRInputSourceState, useXRControllerButtonEvent } from '@react-three/xr';
 import * as THREE from 'three';
 import { CyberBlasterModel } from './VRPlayer';
 import { Language } from '../types/game';
@@ -16,6 +16,9 @@ interface WeaponArmory3DProps {
 }
 
 const BASE_SPIN = 0.5;
+
+const _worldQuat = new THREE.Quaternion();
+const _worldEuler = new THREE.Euler();
 
 /**
  * In-world weapon inspection bay.
@@ -31,6 +34,51 @@ export const WeaponArmory3D: React.FC<WeaponArmory3DProps> = ({ language, onClos
   const velocityRef = useRef(BASE_SPIN);
   const dragRef = useRef({ active: false, lastX: 0 });
   const [hovered, setHovered] = useState<string | null>(null);
+
+  const rightState = useXRInputSourceState('controller', 'right');
+  const leftState = useXRInputSourceState('controller', 'left');
+
+  // Grabbed state for the trigger-drag: the turntable follows the hand itself
+  const grabRef = useRef<{
+    side: 'left' | 'right';
+    startYaw: number;
+    startRotation: number;
+    lastRotation: number;
+    velocity: number;
+  } | null>(null);
+
+  const beginGrab = (side: 'left' | 'right') => {
+    const controller = side === 'right' ? rightState : leftState;
+    const group = turntableRef.current;
+    if (!controller?.object || !group) return;
+    controller.object.getWorldQuaternion(_worldQuat);
+    _worldEuler.setFromQuaternion(_worldQuat, 'YXZ');
+    grabRef.current = {
+      side,
+      startYaw: _worldEuler.y,
+      startRotation: group.rotation.y,
+      lastRotation: group.rotation.y,
+      velocity: 0,
+    };
+  };
+
+  const endGrab = () => {
+    const grab = grabRef.current;
+    if (!grab) return;
+    // Keep a little flick inertia, then ease back into the idle showcase turn
+    velocityRef.current = THREE.MathUtils.clamp(grab.velocity, -4, 4);
+    grabRef.current = null;
+  };
+
+  // Hold either trigger and turn the hand: the table rotates with it
+  useXRControllerButtonEvent(rightState, 'xr-standard-trigger', (state) => {
+    if (state === 'pressed') beginGrab('right');
+    else endGrab();
+  });
+  useXRControllerButtonEvent(leftState, 'xr-standard-trigger', (state) => {
+    if (state === 'pressed') beginGrab('left');
+    else endGrab();
+  });
 
   useEffect(() => {
     const endDrag = () => {
@@ -90,8 +138,9 @@ export const WeaponArmory3D: React.FC<WeaponArmory3DProps> = ({ language, onClos
 
       ctx.fillStyle = '#ffffff';
       ctx.font = `900 24px ${fontFamily}`;
+      ctx.font = `900 20px ${fontFamily}`;
       ctx.fillText(
-        isArabic ? 'اسحب بالماوس أو حرّك رأسك حول السلاح لرؤيته من كل زاوية' : 'DRAG TO ROTATE  ·  WALK AROUND IT IN VR',
+        isArabic ? 'أمسك الزناد وأدِر يدك · أو اسحب بالماوس' : 'HOLD TRIGGER + TURN YOUR HAND  ·  OR DRAG WITH THE MOUSE',
         512,
         254
       );
@@ -128,11 +177,36 @@ export const WeaponArmory3D: React.FC<WeaponArmory3DProps> = ({ language, onClos
     const group = turntableRef.current;
     if (!group) return;
 
-    velocityRef.current = THREE.MathUtils.damp(velocityRef.current, BASE_SPIN, 2.4, delta);
-    group.rotation.y += velocityRef.current * delta;
-
     const t = state.clock.getElapsedTime();
-    group.rotation.x = Math.sin(t * 0.6) * 0.16;
+    const grab = grabRef.current;
+    const controller = grab ? (grab.side === 'right' ? rightState : leftState) : null;
+
+    if (grab && controller?.object) {
+      controller.object.getWorldQuaternion(_worldQuat);
+      _worldEuler.setFromQuaternion(_worldQuat, 'YXZ');
+      const deltaYaw = Math.atan2(
+        Math.sin(_worldEuler.y - grab.startYaw),
+        Math.cos(_worldEuler.y - grab.startYaw)
+      );
+      group.rotation.y = grab.startRotation + deltaYaw;
+
+      if (delta > 0.0001) {
+        grab.velocity = THREE.MathUtils.lerp(
+          grab.velocity,
+          (group.rotation.y - grab.lastRotation) / delta,
+          0.4
+        );
+      }
+      grab.lastRotation = group.rotation.y;
+
+      // Flatten the tilt while the hand owns the rotation
+      group.rotation.x = THREE.MathUtils.damp(group.rotation.x, 0, 8, delta);
+    } else {
+      velocityRef.current = THREE.MathUtils.damp(velocityRef.current, BASE_SPIN, 2.4, delta);
+      group.rotation.y += velocityRef.current * delta;
+      group.rotation.x = Math.sin(t * 0.6) * 0.16;
+    }
+
     group.position.y = Math.sin(t * 1.2) * 0.015;
   });
 
@@ -192,12 +266,7 @@ export const WeaponArmory3D: React.FC<WeaponArmory3DProps> = ({ language, onClos
       </group>
 
       {/* Drag surface: horizontal drag spins the turntable */}
-      <Interactive
-        onSelect={() => {
-          // Trigger in VR: give the table a spin instead of firing
-          velocityRef.current = THREE.MathUtils.clamp(velocityRef.current + 2.4, -6, 6);
-        }}
-      >
+      <Interactive>
         <mesh
           position={[0, 0.05, 0.12]}
           onPointerDown={(e) => {
