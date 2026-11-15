@@ -283,7 +283,23 @@ export const WeaponArmory3D: React.FC<WeaponArmory3DProps> = ({
       </mesh>
 
       {/* Single equipped blaster on the turntable */}
-      <group ref={turntableRef} position={[0, 0.06, 0]}>
+      <group
+        ref={turntableRef}
+        position={[0, 0.06, 0]}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          dragRef.current = { active: true, lastX: e.clientX };
+        }}
+        onPointerMove={(e) => {
+          if (!dragRef.current.active) return;
+          const dx = e.clientX - dragRef.current.lastX;
+          dragRef.current.lastX = e.clientX;
+          velocityRef.current = THREE.MathUtils.clamp(velocityRef.current + dx * 0.03, -6, 6);
+        }}
+        onPointerUp={() => {
+          dragRef.current.active = false;
+        }}
+      >
         <group rotation={[0, Math.PI / 2, 0]} scale={2.5}>
           <CyberBlasterModel color={equipped.color} isRight isFeverMode={false} />
         </group>
@@ -301,10 +317,11 @@ export const WeaponArmory3D: React.FC<WeaponArmory3DProps> = ({
         </mesh>
       </group>
 
-      {/* Drag surface: hold and turn the table */}
+      {/* Drag surface. It sits BEHIND the plates and the close plate: when it was
+          in front of them it swallowed every ray aimed at the UI. */}
       <Interactive>
         <mesh
-          position={[0, 0.12, 0.18]}
+          position={[0, 0.05, -0.45]}
           onPointerDown={(e) => {
             e.stopPropagation();
             dragRef.current = { active: true, lastX: e.clientX };
@@ -319,7 +336,7 @@ export const WeaponArmory3D: React.FC<WeaponArmory3DProps> = ({
             dragRef.current.active = false;
           }}
         >
-          <planeGeometry args={[1.05, 0.66]} />
+          <planeGeometry args={[2.4, 1.7]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
         </mesh>
       </Interactive>

@@ -56,6 +56,7 @@ import { StageResult3D } from './components/StageResult3D';
 import { SplashHero3D } from './components/SplashHero3D';
 import { WeaponArmory3D } from './components/WeaponArmory3D';
 import { HeadsetLinkModal } from './components/HeadsetLinkModal';
+import { GameErrorBoundary } from './components/GameErrorBoundary';
 import { WEAPONS, WeaponId } from './game/weapons';
 import { ScenarioHub3D } from './components/ScenarioHub3D';
 import { DifficultyHub3D } from './components/DifficultyHub3D';
@@ -181,6 +182,13 @@ function MainGameApp() {
   // Live aspect ratio drives the shared 3D answer-card arc (VR wide, portrait narrow)
   const viewAspect = useViewAspect();
 
+  // ?vr=1 is the link handed to a headset: surface the pairing panel straight away
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('vr') === '1') {
+      setIsHeadsetLinkOpen(true);
+    }
+  }, []);
+
   // Query parameters for direct launch
   const queryParams = useMemo(() => new URLSearchParams(window.location.search), []);
   const initialScenario = (queryParams.get('scenario') as ScenarioId) || 'scenario-1';
@@ -300,6 +308,7 @@ function MainGameApp() {
   });
   const weaponSpecRef = useRef(WEAPONS[weaponId]);
   weaponSpecRef.current = WEAPONS[weaponId];
+  const lastEquipAtRef = useRef(0);
   useEffect(() => {
     try {
       localStorage.setItem('cyber_heist_weapon', weaponId);
@@ -580,6 +589,7 @@ function MainGameApp() {
           { id: 'btn-manual', position: [-1.3, 0.85, -3.8], radius: 0.85 },
           { id: 'btn-lang', position: [1.3, 0.85, -3.8], radius: 0.85 },
           { id: 'btn-training', position: [0.0, 0.25, -3.8], radius: 1.1 },
+          { id: 'btn-armory', position: [0.0, -0.35, -3.8], radius: 0.9 },
         ];
       }
       if (cinematicStep === 'scenario_select') {
@@ -885,71 +895,6 @@ function MainGameApp() {
           waveClearGuardRef.current = true;
           advanceAfterWaveRef.current?.();
           return;
-          // 1. Play System Secure victory fanfare
-          spatialAudio.stopAlarmSiren();
-          setAlarmActive(false);
-          spatialAudio.playVictoryFanfare();
-
-          // Scenario-specific purge messages          let purgeEn, purgeAr;
-          if (scenarioId === 'scenario-1') {
-            // Hex Breach: Network mapping insights            purgeEn = 'THREAT PURGED! NETWORK MAP UPDATED: All inbound hex-pattern packets neutralized. Core topology visible.';
-            purgeAr = 'تم تطهير التهديد! خريطة الشبكة محدثة: تم تحييد كل الحزم ذات أنماط الهكس. أصبحت topology النواة ظاهرة.';
-          } else if (scenarioId === 'scenario-2') {
-            // Payload Purge: Ransomware identification reinforced            purgeEn = 'THREAT PURGED! RANSOMWARE PATTERN IDENTIFIED: AES-256 countermeasure validated. Defense posture reinforced.';
-            purgeAr = 'تم تطهير التهديد! تم التعرف على نمط برمجية الفدية: تم التحقق من الدرع AES-256. تم تعزيز وضع الدفاع.';
-          } else if (scenarioId === 'scenario-3') {
-            // DDoS Subnet: Topology logged, EMP reserve noted            purgeEn = 'THREAT PURGED! SUBNET TOPOLOGY LOGGED: EMP reserve noted. Next intrusion will face pre-emptive shielding.';
-            purgeAr = 'تم تطهير التهديد! تم توثيق مخطط النطاق الفرعي: تم تسجيل احتياطي EMP. سيتعرض الاقتحام التالي لحماية استباقية.';
-          } else {
-            purgeEn = 'THREAT PURGED! WARPING BACK...';
-            purgeAr = 'تم تطهير التهديد! جاري الرجوع للنقطة الرئيسية...';
-          }
-
-          setPhaseBanner({
-            type: 'purge',
-            messageEn: purgeEn,
-            messageAr: purgeAr,
-          });
-
-          // 2. Animate camera rapidly warping BACKWARDS to original starting position (Z: 0.4)
-          setIsCombatWarping(true);
-          setCombatWarpDirection('backward');
-          setCombatWarpProgress(0);
-          spatialAudio.playWarpWhoosh(true);
-
-          const startTime = performance.now();
-          const duration = 1100;
-
-          const animateBackWarp = (now: number) => {
-            const elapsed = now - startTime;
-            const p = Math.min(1.0, elapsed / duration);
-            setCombatWarpProgress(p);
-
-            if (p < 1.0) {
-              requestAnimationFrame(animateBackWarp);
-            } else {
-              // Backward warp complete!
-              spatialAudio.playWarpDecelerate();
-              setIsCombatWarping(false);
-              setCombatWarpDirection(null);
-              setPhaseBanner(null);
-
-              const isLastQuestion = questionIndex >= currentQuestions.length - 1;
-              if (isLastQuestion) {
-                setCombatPhase('decoding');
-                setGameStatus('victory');
-              } else {
-                setQuestionIndex((prev) => prev + 1);
-                setCombatPhase('decoding');
-                setOverclockCombo(0);
-                setIsFeverMode(false);
-                spatialAudio.setFeverMode(false);
-                setTimeRemaining((prev) => Math.min(getInitialTimer(difficulty), prev + 35));
-              }
-            }
-          };
-
-          requestAnimationFrame(animateBackWarp);
         }
       }, 100);
     },
@@ -1364,6 +1309,9 @@ function MainGameApp() {
       } else if (idStr === 'btn-retry') {
         spatialAudio.playWhoosh();
         initScenario(scenarioId, difficulty);
+      } else if (idStr === 'btn-armory') {
+        spatialAudio.playWhoosh();
+        setIsArmoryOpen(true);
       } else if (idStr === 'btn-main-menu') {
         spatialAudio.playWhoosh();
         returnToMenu();
@@ -1712,8 +1660,10 @@ function MainGameApp() {
       await xrStore.enterVR();
       initScenario();
     } catch (err) {
-      console.warn('WebXR enterVR failed, launching Desktop Simulator fallback:', err);
-      initScenario();
+      // No headset (or no permission): explain it in the linking panel instead of
+      // silently dropping the player into a run they did not ask for.
+      console.warn('WebXR enterVR failed:', err);
+      setIsHeadsetLinkOpen(true);
     }
   }, [xrStore, initScenario]);
 
@@ -1730,6 +1680,7 @@ function MainGameApp() {
 
       {/* 3D WebXR Canvas Viewport */}
       <div className="absolute inset-0 z-0">
+        <GameErrorBoundary>
         <Canvas
           camera={{ position: [0, 1.6, 0.4], fov: 72 }}
           shadows
@@ -1973,6 +1924,11 @@ function MainGameApp() {
                 language={language}
                 weaponId={weaponId}
                 onSelectWeapon={(id) => {
+                  // The plate answers both the XR select and the pointer handler;
+                  // debounce so one click equips and beeps once.
+                  const now = performance.now();
+                  if (now - lastEquipAtRef.current < 260) return;
+                  lastEquipAtRef.current = now;
                   spatialAudio.playButtonBeep(760);
                   setWeaponId(id);
                 }}
@@ -1987,6 +1943,7 @@ function MainGameApp() {
             <PostFX alarmActive={alarmActive} />
           </XR>
         </Canvas>
+        </GameErrorBoundary>
       </div>
 
       {/* 
