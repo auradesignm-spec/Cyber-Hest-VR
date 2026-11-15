@@ -168,9 +168,9 @@ export const TrainingSimulation: React.FC<TrainingSimulationProps> = ({
       {step === 'target_lock' && (
         <group position={[0, 0, -2.8]}>
           {[
-            { id: 'pylon-alpha', label: 'ALPHA', pos: [-1.4, 1.5, 0] as [number, number, number], color: '#00f0ff' },
+            { id: 'pylon-alpha', label: 'ALPHA', pos: [-1.0, 1.5, 0] as [number, number, number], color: '#00f0ff' },
             { id: 'pylon-beta', label: 'BETA', pos: [0.0, 1.8, -0.4] as [number, number, number], color: '#10b981' },
-            { id: 'pylon-gamma', label: 'GAMMA', pos: [1.4, 1.5, 0] as [number, number, number], color: '#f59e0b' },
+            { id: 'pylon-gamma', label: 'GAMMA', pos: [1.0, 1.5, 0] as [number, number, number], color: '#f59e0b' },
           ].map((pylon) => {
             const isShot = shotTargets.includes(pylon.id);
             const isLocked = lockedTargetId === pylon.id;
@@ -192,10 +192,10 @@ export const TrainingSimulation: React.FC<TrainingSimulationProps> = ({
       {step === 'scenario_firewall' && (
         <group position={[0, 1.6, -3.1]}>
           {[
-            { port: 22, name: 'SSH', pos: [-1.8, 0, 0] as [number, number, number], isCorrect: false },
-            { port: 80, name: 'HTTP', pos: [-0.6, 0.25, 0] as [number, number, number], isCorrect: true },
-            { port: 443, name: 'HTTPS', pos: [0.6, 0.25, 0] as [number, number, number], isCorrect: false },
-            { port: 53, name: 'DNS', pos: [1.8, 0, 0] as [number, number, number], isCorrect: false },
+            { port: 22, name: 'SSH', pos: [-0.9, 0, 0] as [number, number, number], isCorrect: false },
+            { port: 80, name: 'HTTP', pos: [-0.3, 0.25, 0] as [number, number, number], isCorrect: true },
+            { port: 443, name: 'HTTPS', pos: [0.3, 0.25, 0] as [number, number, number], isCorrect: false },
+            { port: 53, name: 'DNS', pos: [0.9, 0, 0] as [number, number, number], isCorrect: false },
           ].map((item) => {
             const isLocked = lockedTargetId === item.port;
             const isShot = shotTargets.includes(String(item.port));
@@ -219,10 +219,10 @@ export const TrainingSimulation: React.FC<TrainingSimulationProps> = ({
       {step === 'scenario_payload' && (
         <group position={[0, 1.45, -2.4]}>
           {[
-            { id: 'AES-256', name: 'AES-256', color: '#10b981', pos: [-1.5, 0, 0] as [number, number, number], isCorrect: true },
-            { id: 'RSA-4096', name: 'RSA-4096', color: '#00f0ff', pos: [-0.5, 0.15, 0] as [number, number, number], isCorrect: false },
-            { id: 'TLS-1.3', name: 'TLS-1.3', color: '#8b5cf6', pos: [0.5, 0.15, 0] as [number, number, number], isCorrect: false },
-            { id: 'SHA-256', name: 'SHA-256', color: '#f59e0b', pos: [1.5, 0, 0] as [number, number, number], isCorrect: false },
+            { id: 'AES-256', name: 'AES-256', color: '#10b981', pos: [-0.9, 0, 0] as [number, number, number], isCorrect: true },
+            { id: 'RSA-4096', name: 'RSA-4096', color: '#00f0ff', pos: [-0.3, 0.15, 0] as [number, number, number], isCorrect: false },
+            { id: 'TLS-1.3', name: 'TLS-1.3', color: '#8b5cf6', pos: [0.3, 0.15, 0] as [number, number, number], isCorrect: false },
+            { id: 'SHA-256', name: 'SHA-256', color: '#f59e0b', pos: [0.9, 0, 0] as [number, number, number], isCorrect: false },
           ].map((shield) => {
             const isLocked = lockedTargetId === shield.id;
             const isShot = shotTargets.includes(shield.id);
@@ -245,9 +245,9 @@ export const TrainingSimulation: React.FC<TrainingSimulationProps> = ({
       {step === 'scenario_ddos' && (
         <group position={[0, 1.8, -2.8]}>
           {[
-            { id: 'ALPHA', cidr: '192.168.1.0/24', pos: [-1.8, 0, 0] as [number, number, number], isCorrect: false, color: '#00f0ff' },
+            { id: 'ALPHA', cidr: '192.168.1.0/24', pos: [-1.0, 0, 0] as [number, number, number], isCorrect: false, color: '#00f0ff' },
             { id: 'BETA', cidr: '192.168.4.0/24', pos: [0.0, 0.35, -0.3] as [number, number, number], isCorrect: true, color: '#10b981' },
-            { id: 'GAMMA', cidr: '10.0.0.0/8', pos: [1.8, 0, 0] as [number, number, number], isCorrect: false, color: '#ec4899' },
+            { id: 'GAMMA', cidr: '10.0.0.0/8', pos: [1.0, 0, 0] as [number, number, number], isCorrect: false, color: '#ec4899' },
           ].map((node) => {
             const isLocked = lockedTargetId === node.id;
             const isShot = shotTargets.includes(node.id);

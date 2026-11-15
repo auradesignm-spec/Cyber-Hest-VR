@@ -536,9 +536,34 @@ function MainGameApp() {
       }
       if (trainingState.step === 'target_lock') {
         return [
-          { id: 'pylon-alpha', position: [-1.4, 1.5, -2.8], radius: 0.42 },
+          { id: 'pylon-alpha', position: [-1.0, 1.5, -2.8], radius: 0.42 },
           { id: 'pylon-beta', position: [0.0, 1.8, -3.2], radius: 0.42 },
-          { id: 'pylon-gamma', position: [1.4, 1.5, -2.8], radius: 0.42 },
+          { id: 'pylon-gamma', position: [1.0, 1.5, -2.8], radius: 0.42 },
+        ];
+      }
+      // Scenario drills render 3D nodes too, so they must be shootable as well:
+      // otherwise the tutorial ran dry at stage 3 and could never finish.
+      if (trainingState.step === 'scenario_firewall') {
+        return [
+          { id: '22', position: [-0.9, 1.6, -3.1], radius: 0.45 },
+          { id: '80', position: [-0.3, 1.85, -3.1], radius: 0.45 },
+          { id: '443', position: [0.3, 1.85, -3.1], radius: 0.45 },
+          { id: '53', position: [0.9, 1.6, -3.1], radius: 0.45 },
+        ];
+      }
+      if (trainingState.step === 'scenario_payload') {
+        return [
+          { id: 'AES-256', position: [-0.9, 1.45, -2.4], radius: 0.45 },
+          { id: 'RSA-4096', position: [-0.3, 1.6, -2.4], radius: 0.45 },
+          { id: 'TLS-1.3', position: [0.3, 1.6, -2.4], radius: 0.45 },
+          { id: 'SHA-256', position: [0.9, 1.45, -2.4], radius: 0.45 },
+        ];
+      }
+      if (trainingState.step === 'scenario_ddos') {
+        return [
+          { id: 'ALPHA', position: [-1.0, 1.8, -2.8], radius: 0.45 },
+          { id: 'BETA', position: [0.0, 2.15, -3.1], radius: 0.45 },
+          { id: 'GAMMA', position: [1.0, 1.8, -2.8], radius: 0.45 },
         ];
       }
       return [];
@@ -1074,6 +1099,31 @@ function MainGameApp() {
             shotTargets: [...prev.shotTargets, idStr],
           };
         });
+        return;
+      }
+
+      // Scenario drills: only the prescribed answer counts as a pass
+      const prescribed: Partial<Record<TrainingStepId, string>> = {
+        scenario_firewall: '80',
+        scenario_payload: 'AES-256',
+        scenario_ddos: 'BETA',
+      };
+      const wanted = prescribed[step];
+      if (!wanted) return;
+
+      const idStr = String(targetId);
+      if (idStr === wanted) {
+        particlesRef.current?.spawnVoxelShatter(pos[0], pos[1], pos[2], '#00ffcc');
+        spatialAudio.playSuccessChime();
+        setTrainingState((prev) =>
+          prev.shotTargets.includes(idStr)
+            ? prev
+            : { ...prev, shotTargets: [...prev.shotTargets, idStr] }
+        );
+      } else {
+        particlesRef.current?.spawnSparks(pos[0], pos[1], pos[2], '#FF0055');
+        spatialAudio.playErrorBuzzer();
+        setTrainingState((prev) => ({ ...prev, shotTargets: [] }));
       }
     },
     [trainingState.step]
@@ -1109,6 +1159,26 @@ function MainGameApp() {
       lastFeedback: null,
     }));
   }, []);
+
+  // Tutorial progression: every stage advances itself as soon as its objective
+  // is met, so the onboarding can never run out of things to shoot.
+  useEffect(() => {
+    if (gameStatus !== 'training') return;
+    const step = trainingState.step;
+    const cleared = trainingState.shotTargets;
+
+    if ((step === 'welcome' || step === 'blaster_basics') && trainingState.packetsDestroyed >= 2) {
+      handleTrainingSetStep('target_lock');
+    } else if (step === 'target_lock' && cleared.length >= 1) {
+      handleTrainingSetStep('scenario_firewall');
+    } else if (step === 'scenario_firewall' && cleared.includes('80')) {
+      handleTrainingSetStep('scenario_payload');
+    } else if (step === 'scenario_payload' && cleared.includes('AES-256')) {
+      handleTrainingSetStep('scenario_ddos');
+    } else if (step === 'scenario_ddos' && cleared.includes('BETA')) {
+      handleTrainingSetStep('graduation');
+    }
+  }, [gameStatus, trainingState.step, trainingState.packetsDestroyed, trainingState.shotTargets, handleTrainingSetStep]);
 
   const handleTrainingNextStep = useCallback(() => {
     spatialAudio.playButtonBeep(720);
@@ -1455,6 +1525,12 @@ function MainGameApp() {
 
       // 4. Training Mode dispatch
       if (gameStatus === 'training') {
+        // Track both hands so the calibration checklist actually ticks over
+        setTrainingState((prev) => {
+          if (side === 'left' ? prev.leftFired : prev.rightFired) return prev;
+          return side === 'left' ? { ...prev, leftFired: true } : { ...prev, rightFired: true };
+        });
+
         for (let i = 0; i < activeTargets.length; i++) {
           const target = activeTargets[i];
           _menuSphere.center.set(target.position[0], target.position[1], target.position[2]);
